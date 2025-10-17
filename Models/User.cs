@@ -23,6 +23,7 @@ public partial class User
     public string PasswordHash { get; set; } = null!;
 
     [StringLength(100)]
+    [EmailAddress]
     public string Email { get; set; } = null!;
 
     [StringLength(100)]

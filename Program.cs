@@ -1,6 +1,7 @@
 
 using Microsoft.EntityFrameworkCore;
 using PCShop_Backend.Data;
+using PCShop_Backend.Service;
 
 namespace PCShop_Backend
 {
@@ -18,6 +19,12 @@ namespace PCShop_Backend
             builder.Services.AddSwaggerGen();
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+            builder.Services.AddScoped<IProductService, ProductService>();
+            builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IAuthService, AuthService>();
+            builder.Services.AddScoped<IOrderService, OrderService>();
+            builder.Services.AddScoped<ISupportService, SupportService>();
 
             var app = builder.Build();
 
