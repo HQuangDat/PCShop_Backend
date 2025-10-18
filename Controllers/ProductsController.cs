@@ -14,5 +14,11 @@ namespace PCShop_Backend.Controllers
             _productService = productService;
         }
 
+        [HttpGet("components")]
+        public async Task<IActionResult> ComponentsList()
+        {
+            var components = await _productService.getAllComponents();
+            return Ok(components);
+        }
     }
 }

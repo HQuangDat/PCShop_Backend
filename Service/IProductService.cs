@@ -1,16 +1,16 @@
+using PCShop_Backend.Dtos;
 using PCShop_Backend.Models;
-using System.Runtime.CompilerServices;
 
 namespace PCShop_Backend.Service
 {
     public interface IProductService
     {
         //Component 
-        Task<IEnumerable<Component>> getAllComponents();
+        Task<IEnumerable<ComponentDto>> getAllComponents();
         Task<Component?> getComponentById(int id);
         Task<IEnumerable<Component>> getComponentsByCategory(int CategoryId);
-        Task createComponent(Component newComponent);
-        Task updateComponent(int id, Component updatedComponent);
+        Task createComponent(createComponentDto createComponentDto);
+        Task updateComponent(int id, updateComponentDto updateComponentDto);
         Task deleteComponent(int id);
         //Component Specs
         Task addComponentSpecs(int componentId, ComponentSpec spec);

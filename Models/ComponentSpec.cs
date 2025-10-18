@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 
 namespace PCShop_Backend.Models;
@@ -25,5 +26,6 @@ public partial class ComponentSpec
 
     [ForeignKey("ComponentId")]
     [InverseProperty("ComponentSpecs")]
+    [JsonIgnore]
     public virtual Component Component { get; set; } = null!;
 }
