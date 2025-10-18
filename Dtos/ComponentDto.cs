@@ -10,6 +10,6 @@
         public int StockQuantity { get; set; }
         public string? Description { get; set; }
         public string? ImageUrl { get; set; }
-        public List<ComponentSpecDto> Specs { get; set; }
+        public List<ComponentSpecDto> Specs { get; set; } = new List<ComponentSpecDto>();
     }
 }

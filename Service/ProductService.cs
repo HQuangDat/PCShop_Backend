@@ -17,7 +17,7 @@ namespace PCShop_Backend.Service
             _context = context;
         }
 
-        // Component
+        // ==================Component==================\\
         public async Task createComponent(createComponentDto createComponentDto)
         {
             var component = new Component
@@ -59,14 +59,57 @@ namespace PCShop_Backend.Service
                 })
                 .ToListAsync();
         }
-        public async Task<Component?> getComponentById(int id)
+        public async Task<ComponentDto> getComponentById(int id)
         {
-            return await _context.Components.FindAsync(id);
+            var component = await _context.Components
+                .Include(c => c.Category)
+                .Include(c => c.ComponentSpecs)
+                .FirstOrDefaultAsync(c => c.ComponentId == id);
+
+            if (component == null)
+            {
+                throw new NotFoundException($"Component with ID {id} not found");
+            }
+
+            return new ComponentDto
+            {
+                ComponentId = component.ComponentId,
+                Name = component.Name,
+                CategoryName = component.Category != null ? component.Category.CategoryName : "Uncategorized",
+                Brand = component.Brand!,
+                Price = component.Price,
+                StockQuantity = component.StockQuantity,
+                Description = component.Description!,
+                ImageUrl = component.ImageUrl!,
+                Specs = component.ComponentSpecs.Select(s => new ComponentSpecDto
+                {
+                    SpecKey = s.SpecKey,
+                    SpecValue = s.SpecValue,
+                    DisplayOrder = s.DisplayOrder
+                }).ToList()
+            };
         }
-        public async Task<IEnumerable<Component>> getComponentsByCategory(int CategoryId)
+        public async Task<IEnumerable<ComponentDto>> getComponentsByCategory(int categoryId)
         {
             return await _context.Components
-                .Where(c=>c.CategoryId == CategoryId)
+                .Where(c => c.CategoryId == categoryId)
+                .Select(c => new ComponentDto
+                {
+                    ComponentId = c.ComponentId,
+                    Name = c.Name,
+                    CategoryName = c.Category != null ? c.Category.CategoryName : "Uncategorized",
+                    Brand = c.Brand!,
+                    Price = c.Price,
+                    StockQuantity = c.StockQuantity,
+                    Description = c.Description!,
+                    ImageUrl = c.ImageUrl!,
+                    Specs = c.ComponentSpecs.Select(s => new ComponentSpecDto
+                    {
+                        SpecKey = s.SpecKey,
+                        SpecValue = s.SpecValue,
+                        DisplayOrder = s.DisplayOrder
+                    }).ToList()
+                })
                 .ToListAsync();
         }
         public async Task updateComponent(int id, updateComponentDto updateComponentDto)
@@ -134,29 +177,62 @@ namespace PCShop_Backend.Service
             await _context.SaveChangesAsync();
         }
 
-        // ComponentCategory
-        public Task addComponentCategory(ComponentCategory newCategory)
+        // ==================ComponentCategory==================\\
+        public async Task addComponentCategory(CreateComponentCategoryDto createComponentCategoryDto)
         {
-            throw new NotImplementedException();
+            var category = new ComponentCategory
+            {
+                CategoryName = createComponentCategoryDto.CategoryName,
+                Description = createComponentCategoryDto.Description
+            };
+            await _context.ComponentCategories.AddAsync(category);
         }
-        public Task<IEnumerable<ComponentCategory>> getAllComponentCategories()
+        public async Task<IEnumerable<ComponentCategoriesDto>> getAllComponentCategories()
         {
-            throw new NotImplementedException();
+            return await _context.ComponentCategories.Select(cate=> new ComponentCategoriesDto
+            {
+                CategoryId = cate.CategoryId,
+                CategoryName = cate.CategoryName,
+                Description = cate.Description
+            }).ToListAsync();
         }
-        public Task<ComponentCategory?> getComponentCategoryById(int categoryId)
+        public async Task<ComponentCategoriesDto?> getComponentCategoryById(int categoryId)
         {
-            throw new NotImplementedException();
+            var category = await _context.ComponentCategories.FindAsync(categoryId);
+            if (category == null)
+            {
+                throw new NotFoundException($"Category with ID {categoryId} not found");
+            }
+            return new ComponentCategoriesDto
+            {
+                CategoryId = category.CategoryId,
+                CategoryName = category.CategoryName,
+                Description = category.Description
+            };
         }
-        public Task updateComponentCategory(int componentId, ComponentCategory componentCategory)
+        public Task updateComponentCategory(int componentId, UpdateComponentCategoryDto updateComponentCategoryDto)
         {
-            throw new NotImplementedException();
+            var category = _context.ComponentCategories.Find(componentId);
+            if (category == null)
+            {
+                throw new NotFoundException($"Component with ID {componentId} not found");
+            }
+            category.CategoryName = updateComponentCategoryDto.CategoryName;
+            category.Description = updateComponentCategoryDto.Description;
+            return _context.SaveChangesAsync();
         }
-        public Task deleteComponentCategory(int categoryId)
+        public async Task deleteComponentCategory(int categoryId)
         {
-            throw new NotImplementedException();
+            var category = await _context.ComponentCategories.FindAsync(categoryId);
+            if (category == null)
+            {
+                throw new NotFoundException($"Category with ID {categoryId} not found");
+            }
+            _context.ComponentCategories.Remove(category);
+            await _context.SaveChangesAsync();
         }
 
-        // ComponentSpec
+        // ==================ComponentSpec==================\\
         public Task addComponentSpecs(int componentId, ComponentSpec spec)
         {
             throw new NotImplementedException();
@@ -178,7 +254,7 @@ namespace PCShop_Backend.Service
             throw new NotImplementedException();
         }
 
-        // Pcbuild
+        // ==================PC Build==================\\
         public Task createPcbuild(Pcbuild pcBuild)
         {
             throw new NotImplementedException();

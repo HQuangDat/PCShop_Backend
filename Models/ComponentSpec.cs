@@ -26,6 +26,5 @@ public partial class ComponentSpec
 
     [ForeignKey("ComponentId")]
     [InverseProperty("ComponentSpecs")]
-    [JsonIgnore]
     public virtual Component Component { get; set; } = null!;
 }

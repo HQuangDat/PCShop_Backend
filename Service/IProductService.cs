@@ -7,8 +7,8 @@ namespace PCShop_Backend.Service
     {
         //Component 
         Task<IEnumerable<ComponentDto>> getAllComponents();
-        Task<Component?> getComponentById(int id);
-        Task<IEnumerable<Component>> getComponentsByCategory(int CategoryId);
+        Task<ComponentDto> getComponentById(int id);
+        Task<IEnumerable<ComponentDto>> getComponentsByCategory(int CategoryId);
         Task createComponent(createComponentDto createComponentDto);
         Task updateComponent(int id, updateComponentDto updateComponentDto);
         Task deleteComponent(int id);
@@ -19,11 +19,11 @@ namespace PCShop_Backend.Service
         Task deleteComponentSpecs(int specId);
         Task<IEnumerable<ComponentSpec>> getAllComponentSpecs();
         //Component Category
-        Task<ComponentCategory?> getComponentCategoryById(int categoryId);
-        Task addComponentCategory(ComponentCategory newCategory);
+        Task<ComponentCategoriesDto?> getComponentCategoryById(int categoryId);
+        Task addComponentCategory(CreateComponentCategoryDto createComponentCategoryDto);
         Task deleteComponentCategory(int categoryId);
-        Task updateComponentCategory(int categoryId, ComponentCategory componentCategory);
-        Task<IEnumerable<ComponentCategory>> getAllComponentCategories();
+        Task updateComponentCategory(int categoryId, UpdateComponentCategoryDto updateComponentCategoryDto);
+        Task<IEnumerable<ComponentCategoriesDto>> getAllComponentCategories();
         //Pcbuild
         Task<Pcbuild?> getPcbuildById(int buildId);
         Task createPcbuild(Pcbuild pcBuild);
