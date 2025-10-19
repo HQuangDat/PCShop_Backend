@@ -1,3 +1,4 @@
+using Gridify;
 using Microsoft.AspNetCore.Mvc;
 using PCShop_Backend.Dtos;
 using PCShop_Backend.Service;
@@ -17,9 +18,9 @@ namespace PCShop_Backend.Controllers
 
         // ==================Component==================\\
         [HttpGet("components")]
-        public async Task<IActionResult> ComponentsList()
+        public async Task<IActionResult> ComponentsList([FromQuery] GridifyQuery query)
         {
-            var components = await _productService.getAllComponents();
+            var components = await _productService.getComponents(query);
             return Ok(components);
         }
 
@@ -57,9 +58,9 @@ namespace PCShop_Backend.Controllers
 
         // ==================ComponentCategory==================\\
         [HttpGet("component-categories")]
-        public async Task<IActionResult> ComponentCategoriesList()
+        public async Task<IActionResult> ComponentCategoriesList([FromQuery] GridifyQuery query)
         {
-            var categories = await _productService.getAllComponentCategories();
+            var categories = await _productService.getComponentCategories(query);
             return Ok(categories);
         }
         [HttpGet("component-category/{categoryId}")]
@@ -91,6 +92,42 @@ namespace PCShop_Backend.Controllers
         public async Task<IActionResult> DeleteComponentCategory(int categoryId)
         {
             await _productService.deleteComponentCategory(categoryId);
+            return Ok();
+        }
+
+        // ==================ComponentSpecs==================\\
+        [HttpGet("component-specs")]
+        public async Task<IActionResult> ComponentSpecsList([FromQuery] GridifyQuery query)
+        {
+            var specs = await _productService.getComponentSpecs(query);
+            return Ok(specs);
+        }
+
+        [HttpGet("component-spec/{specId}")]
+        public async Task<IActionResult> GetComponentSpecById(int specId)
+        {
+            var spec = await _productService.getComponentSpecById(specId);
+            return Ok(spec);
+        }
+        
+        [HttpPost("component-spec/create")]
+        public async Task<IActionResult> CreateComponentSpec([FromBody] CreateComponentSpecDto createComponentSpecDto)
+        {
+            await _productService.addComponentSpecs(createComponentSpecDto);
+            return Ok(new { message = "Component spec created successfully" });
+        }
+
+        [HttpPut("component-spec/update/{specId}")]
+        public async Task<IActionResult> UpdateComponentSpec(int specId, [FromBody] UpdateComponentSpecDto updateComponentSpecDto)
+        {
+            await _productService.updateComponentSpecs(specId, updateComponentSpecDto);
+            return Ok(new { message = "Component spec updated successfully" });
+        }
+
+        [HttpDelete("component-spec/delete/{specId}")]
+        public async Task<IActionResult> DeleteComponentSpec(int specId)
+        {
+            await _productService.deleteComponentSpecs(specId);
             return Ok();
         }
     }

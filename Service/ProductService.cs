@@ -1,4 +1,6 @@
-﻿using Humanizer;
+﻿using Gridify;
+using Gridify.EntityFramework;
+using Humanizer;
 using Microsoft.EntityFrameworkCore;
 using OpenQA.Selenium;
 using PCShop_Backend.Data;
@@ -18,28 +20,11 @@ namespace PCShop_Backend.Service
         }
 
         // ==================Component==================\\
-        public async Task createComponent(createComponentDto createComponentDto)
+        public async Task<Paging<ComponentDto>> getComponents(GridifyQuery query)
         {
-            var component = new Component
-            {
-                Name = createComponentDto.Name,
-                CategoryId = createComponentDto.CategoryId,
-                Brand = createComponentDto.Brand,
-                Price = createComponentDto.Price,
-                StockQuantity = createComponentDto.StockQuantity,
-                ImageUrl = createComponentDto.ImageUrl,
-                IsActive = createComponentDto.IsActive ?? true,
-                Description = createComponentDto.Description,
-                CreatedAt = DateTime.UtcNow
-            };
-            await _context.Components.AddAsync(component);
-            await  _context.SaveChangesAsync();
-        }
-        public async Task<IEnumerable<ComponentDto>> getAllComponents()
-        {
-            return await _context.Components
-                .Include(ct=>ct.Category)
-                .Include(sp=>sp.ComponentSpecs)
+            var componentsQuery = _context.Components
+                .Include(ct => ct.Category)
+                .Include(sp => sp.ComponentSpecs)
                 .Select(c => new ComponentDto
                 {
                     ComponentId = c.ComponentId,
@@ -56,8 +41,26 @@ namespace PCShop_Backend.Service
                         SpecValue = s.SpecValue,
                         DisplayOrder = s.DisplayOrder
                     }).ToList()
-                })
-                .ToListAsync();
+                });
+            var result = await componentsQuery.GridifyAsync(query);
+            return result;
+        }
+        public async Task createComponent(createComponentDto createComponentDto)
+        {
+            var component = new Component
+            {
+                Name = createComponentDto.Name,
+                CategoryId = createComponentDto.CategoryId,
+                Brand = createComponentDto.Brand,
+                Price = createComponentDto.Price,
+                StockQuantity = createComponentDto.StockQuantity,
+                ImageUrl = createComponentDto.ImageUrl,
+                IsActive = createComponentDto.IsActive ?? true,
+                Description = createComponentDto.Description,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _context.Components.AddAsync(component);
+            await  _context.SaveChangesAsync();
         }
         public async Task<ComponentDto> getComponentById(int id)
         {
@@ -88,29 +91,6 @@ namespace PCShop_Backend.Service
                     DisplayOrder = s.DisplayOrder
                 }).ToList()
             };
-        }
-        public async Task<IEnumerable<ComponentDto>> getComponentsByCategory(int categoryId)
-        {
-            return await _context.Components
-                .Where(c => c.CategoryId == categoryId)
-                .Select(c => new ComponentDto
-                {
-                    ComponentId = c.ComponentId,
-                    Name = c.Name,
-                    CategoryName = c.Category != null ? c.Category.CategoryName : "Uncategorized",
-                    Brand = c.Brand!,
-                    Price = c.Price,
-                    StockQuantity = c.StockQuantity,
-                    Description = c.Description!,
-                    ImageUrl = c.ImageUrl!,
-                    Specs = c.ComponentSpecs.Select(s => new ComponentSpecDto
-                    {
-                        SpecKey = s.SpecKey,
-                        SpecValue = s.SpecValue,
-                        DisplayOrder = s.DisplayOrder
-                    }).ToList()
-                })
-                .ToListAsync();
         }
         public async Task updateComponent(int id, updateComponentDto updateComponentDto)
         {
@@ -178,6 +158,18 @@ namespace PCShop_Backend.Service
         }
 
         // ==================ComponentCategory==================\\
+        public async Task<Paging<ComponentCategoriesDto>> getComponentCategories(GridifyQuery query)
+        {
+            var categoriesQuery = _context.ComponentCategories
+                .Select(cate => new ComponentCategoriesDto
+                {
+                    CategoryId = cate.CategoryId,
+                    CategoryName = cate.CategoryName,
+                    Description = cate.Description
+                });
+            var result = await categoriesQuery.GridifyAsync(query);
+            return result;
+        }
         public async Task addComponentCategory(CreateComponentCategoryDto createComponentCategoryDto)
         {
             var category = new ComponentCategory
@@ -186,15 +178,6 @@ namespace PCShop_Backend.Service
                 Description = createComponentCategoryDto.Description
             };
             await _context.ComponentCategories.AddAsync(category);
-        }
-        public async Task<IEnumerable<ComponentCategoriesDto>> getAllComponentCategories()
-        {
-            return await _context.ComponentCategories.Select(cate=> new ComponentCategoriesDto
-            {
-                CategoryId = cate.CategoryId,
-                CategoryName = cate.CategoryName,
-                Description = cate.Description
-            }).ToListAsync();
         }
         public async Task<ComponentCategoriesDto?> getComponentCategoryById(int categoryId)
         {
@@ -233,25 +216,69 @@ namespace PCShop_Backend.Service
         }
 
         // ==================ComponentSpec==================\\
-        public Task addComponentSpecs(int componentId, ComponentSpec spec)
+        public async Task addComponentSpecs(CreateComponentSpecDto createComponentSpecDto)
         {
-            throw new NotImplementedException();
+            await _context.ComponentSpecs.AddAsync(new ComponentSpec
+            {
+                ComponentId = createComponentSpecDto.ComponentId,
+                SpecKey = createComponentSpecDto.SpecKey,
+                SpecValue = createComponentSpecDto.SpecValue,
+                DisplayOrder = createComponentSpecDto.DisplayOrder
+            });
+            await _context.SaveChangesAsync();
         }
-        public Task<IEnumerable<ComponentSpec>> getAllComponentSpecs()
+        public async Task<Paging<ComponentSpecsDto>> getComponentSpecs(GridifyQuery query)
         {
-            throw new NotImplementedException();
+            var specsQuery = _context.ComponentSpecs
+                .Select(s => new ComponentSpecsDto
+                {
+                    SpecId = s.SpecId,
+                    ComponentId = s.ComponentId,
+                    SpecKey = s.SpecKey,
+                    SpecValue = s.SpecValue,
+                    DisplayOrder = s.DisplayOrder
+                });
+            var result = await specsQuery.GridifyAsync(query);
+            return result;
         }
-        public Task<ComponentSpec?> getComponentSpecsById(int specId)
+        public async Task<ComponentSpecsDto> getComponentSpecById(int specId)
         {
-            throw new NotImplementedException();
+            var spec = await _context.ComponentSpecs.FindAsync(specId);
+            if(spec == null)
+            {
+                throw new NotFoundException($"Component Spec with ID {specId} not found");
+            }
+
+            return new ComponentSpecsDto
+            {
+                SpecId = spec.SpecId,
+                ComponentId = spec.ComponentId,
+                SpecKey = spec.SpecKey,
+                SpecValue = spec.SpecValue,
+                DisplayOrder = spec.DisplayOrder
+            };
         }
-        public Task updateComponentSpecs(int specId, ComponentSpec updatedSpec)
+        public async Task updateComponentSpecs(int specId, UpdateComponentSpecDto updateComponentSpecDto)
         {
-            throw new NotImplementedException();
+            var spec = await _context.ComponentSpecs.FindAsync(specId);
+            if (spec == null)
+            {
+                throw new NotFoundException($"Component Spec with ID {specId} not found");
+            }
+            spec.SpecKey = updateComponentSpecDto.SpecKey;
+            spec.SpecValue = updateComponentSpecDto.SpecValue;
+            spec.DisplayOrder = updateComponentSpecDto.DisplayOrder;
+            await _context.SaveChangesAsync();
         }
-        public Task deleteComponentSpecs(int specId)
+        public async Task deleteComponentSpecs(int specId)
         {
-            throw new NotImplementedException();
+            var spec = _context.ComponentSpecs.Find(specId);
+            if (spec == null)
+            {
+                throw new NotFoundException($"Component Spec with ID {specId} not found");
+            }
+            _context.ComponentSpecs.Remove(spec);
+            await _context.SaveChangesAsync();
         }
 
         // ==================PC Build==================\\
