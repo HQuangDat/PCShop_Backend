@@ -130,5 +130,41 @@ namespace PCShop_Backend.Controllers
             await _productService.deleteComponentSpecs(specId);
             return Ok();
         }
+
+        // ==================PCBuild==================\\
+        [HttpGet("pcbuilds")]
+        public async Task<IActionResult> PcBuildsList([FromQuery] GridifyQuery query)
+        {
+            var pcBuilds = await _productService.getPcBuilds(query);
+            return Ok(pcBuilds);
+        }
+
+        [HttpGet("pcbuild/{id}")]
+        public async Task<IActionResult> GetPcBuildById(int id)
+        {
+            var pcBuild = await _productService.getPcbuildById(id);
+            return Ok(pcBuild);
+        }
+
+        [HttpPost("pcbuild/create")]
+        public async Task<IActionResult> CreatePcBuild(int userId,[FromBody] CreatePcBuildDto createPcBuildDto)
+        {
+            await _productService.createPcbuild(userId,createPcBuildDto);
+            return Ok(new { message = "PC Build created successfully" });
+        }
+
+        [HttpPut("pcbuild/update/{id}")]
+        public async Task<IActionResult> UpdatePcBuild(int buildId,int userId, [FromBody] UpdatePcBuildDto updatePcBuildDto)
+        {
+            await _productService.UpdatePcBuild(buildId, userId, updatePcBuildDto);
+            return Ok(new { message = "PC Build updated successfully" });
+        }
+
+        [HttpDelete("pcbuild/delete/{id}")]
+        public async Task<IActionResult> DeletePcBuild(int id)
+        {
+            await _productService.deletePcbuild(id);
+            return Ok();
+        }
     }
 }

@@ -6,6 +6,7 @@ using OpenQA.Selenium;
 using PCShop_Backend.Data;
 using PCShop_Backend.Dtos;
 using PCShop_Backend.Models;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 
 namespace PCShop_Backend.Service
@@ -47,7 +48,7 @@ namespace PCShop_Backend.Service
         }
         public async Task createComponent(createComponentDto createComponentDto)
         {
-            var component = new Component
+            var component = new Models.Component
             {
                 Name = createComponentDto.Name,
                 CategoryId = createComponentDto.CategoryId,
@@ -282,25 +283,203 @@ namespace PCShop_Backend.Service
         }
 
         // ==================PC Build==================\\
-        public Task createPcbuild(Pcbuild pcBuild)
+
+        public async Task<Paging<PcBuildDto>> getPcBuilds(GridifyQuery query)
         {
-            throw new NotImplementedException();
+            var build =  _context.Pcbuilds
+                .Include(b => b.CreatedByUser)
+                .Include(b => b.PcbuildComponents)
+                    .ThenInclude(bc => bc.Component)
+                        .ThenInclude(c => c.Category)
+                .Select(b=> new PcBuildDto
+                {
+                    BuildId = b.BuildId,
+                    BuildName = b.BuildName,
+                    Description = b.Description,
+                    IsPublic = b.IsPublic ?? false,
+                    CreatedByUserId = b.CreatedByUserId,
+                    CreatedByUserName = b.CreatedByUser.FullName ?? "Unknown",
+                    CreatedAt = b.CreatedAt ?? DateTime.UtcNow,
+                    UpdatedAt = b.UpdatedAt,
+                    Components = b.PcbuildComponents.Select(bc => new PcBuildComponentDto
+                    {
+                        ComponentId = bc.ComponentId,
+                        ComponentName = bc.Component.Name,
+                        CategoryName = bc.Component.Category.CategoryName ?? "N/A",
+                        Brand = bc.Component.Brand,
+                        UnitPrice = bc.Component.Price,
+                        Quantity = bc.Quantity,
+                        Subtotal = bc.Component.Price * bc.Quantity,
+                        ImageUrl = bc.Component.ImageUrl
+                    }).ToList(),
+                    TotalPrice = b.PcbuildComponents.Sum(bc => bc.Component.Price * bc.Quantity)
+                });
+            var result = await build.GridifyAsync(query);
+            return result;
         }
-        public Task<IEnumerable<Pcbuild>> getAllPcbuilds()
+
+        public async Task<PcBuildDto> getPcbuildById(int buildId)
         {
-            throw new NotImplementedException();
+            var build = await _context.Pcbuilds
+                .Include(b => b.CreatedByUser)
+                .Include(b => b.PcbuildComponents)
+                    .ThenInclude(bc => bc.Component)
+                        .ThenInclude(c => c.Category)
+                .FirstOrDefaultAsync(b => b.BuildId == buildId);
+
+            if (build == null)
+                throw new NotFoundException($"Build {buildId} not found");
+
+            var components = build.PcbuildComponents.Select(bc => new PcBuildComponentDto
+            {
+                ComponentId = bc.ComponentId,
+                ComponentName = bc.Component.Name,
+                CategoryName = bc.Component.Category?.CategoryName ?? "N/A",
+                Brand = bc.Component.Brand,
+                UnitPrice = bc.Component.Price,
+                Quantity = bc.Quantity,
+                Subtotal = bc.Component.Price * bc.Quantity,
+                ImageUrl = bc.Component.ImageUrl
+            }).ToList();
+
+            return new PcBuildDto
+            {
+                BuildId = build.BuildId,
+                BuildName = build.BuildName,
+                Description = build.Description,
+                IsPublic = build.IsPublic ?? false,
+                CreatedByUserId = build.CreatedByUserId,
+                CreatedByUserName = build.CreatedByUser?.FullName ?? "Unknown",
+                CreatedAt = build.CreatedAt ?? DateTime.UtcNow,
+                UpdatedAt = build.UpdatedAt,
+                Components = components,
+                TotalPrice = components.Sum(c => c.Subtotal),
+            };
         }
-        public Task<Pcbuild?> getPcbuildById(int buildId)
+
+        public async Task createPcbuild(int userId, CreatePcBuildDto createPcBuildDto)
         {
-            throw new NotImplementedException();
+            var componentsId = createPcBuildDto.Components.Select(c => c.ComponentId).ToList();
+            var components = await _context.Components.Where(c => componentsId
+                .Contains(c.ComponentId) && c.IsActive == true)
+                .ToListAsync();
+            if(components.Count != componentsId.Distinct().Count())
+            {
+                throw new ValidationException("One or more components are invalid or inactive");
+            }
+
+            //check quantity of each component
+            foreach(var item in createPcBuildDto.Components)
+            {
+                var componentInBuild = components.First(c => c.ComponentId == item.ComponentId);
+                if(componentInBuild.StockQuantity < item.Quantity)
+                {
+                    throw new ValidationException(
+                            $"Component '{componentInBuild.Name}' has insufficient stock. " +
+                            $"Available: {componentInBuild.StockQuantity}, Requested: {item.Quantity}");
+                }
+            }
+
+            var createPc = new Pcbuild
+            {
+                BuildName = createPcBuildDto.BuildName,
+                Description = createPcBuildDto.Description,
+                IsPublic = createPcBuildDto.IsPublic,
+                CreatedByUserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _context.Pcbuilds.AddAsync(createPc);
+            await _context.SaveChangesAsync();
+
+            foreach (var item in createPcBuildDto.Components)
+            {
+                _context.PcbuildComponents.Add(new PcbuildComponent
+                {
+                    BuildId = createPc.BuildId,
+                    ComponentId = item.ComponentId,
+                    Quantity = item.Quantity
+                });
+            }
+            await _context.SaveChangesAsync();
         }
-        public Task updatePcbuild(int buildId, Pcbuild updatedBuild)
+
+        public async Task UpdatePcBuild(int buildId, int userId, UpdatePcBuildDto dto)
         {
-            throw new NotImplementedException();
+            var build = await _context.Pcbuilds
+                .Include(b => b.PcbuildComponents)  
+                .FirstOrDefaultAsync(b => b.BuildId == buildId);
+
+            if (build == null)
+                throw new NotFoundException($"PC Build with ID {buildId} not found");
+
+            if (build.CreatedByUserId != userId)
+                throw new Exception("You don't have permission to update this build");
+
+            build.BuildName = dto.BuildName;
+            build.Description = dto.Description;
+            build.IsPublic = dto.IsPublic;
+            build.UpdatedAt = DateTime.UtcNow;
+
+            if (dto.Components != null && dto.Components.Any())
+            {
+                var componentIds = dto.Components.Select(c => c.ComponentId).Distinct().ToList();
+                var validComponents = await _context.Components
+                    .Where(c => componentIds.Contains(c.ComponentId) && c.IsActive == true)
+                    .Select(c => c.ComponentId)
+                    .ToListAsync();
+
+                if (validComponents.Count != componentIds.Count)
+                {
+                    var invalidIds = componentIds.Except(validComponents);
+                    throw new ValidationException(
+                        $"Components not found or inactive: {string.Join(", ", invalidIds)}");
+                }
+
+                var existingComponents = build.PcbuildComponents.ToList();
+
+                var componentsToRemove = existingComponents
+                    .Where(ec => !componentIds.Contains(ec.ComponentId))
+                    .ToList();
+
+                _context.PcbuildComponents.RemoveRange(componentsToRemove);
+
+                foreach (var item in dto.Components)
+                {
+                    var existing = existingComponents
+                        .FirstOrDefault(ec => ec.ComponentId == item.ComponentId);
+
+                    if (existing != null)
+                    {
+                        // Update quantity
+                        existing.Quantity = item.Quantity;
+                    }
+                    else
+                    {
+                        _context.PcbuildComponents.Add(new PcbuildComponent
+                        {
+                            BuildId = buildId,
+                            ComponentId = item.ComponentId,
+                            Quantity = item.Quantity
+                        });
+                    }
+                }
+            }
+
+            await _context.SaveChangesAsync();
         }
+
         public Task deletePcbuild(int buildId)
         {
-            throw new NotImplementedException();
+            var pcBuild = _context.Pcbuilds.Find(buildId);
+            if (pcBuild == null)
+            {
+                throw new NotFoundException($"PC Build with ID {buildId} not found");
+            }
+            _context.Pcbuilds.Remove(pcBuild);
+            return _context.SaveChangesAsync();
         }
+
+        
     }
 }
