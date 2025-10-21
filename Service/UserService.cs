@@ -3,6 +3,8 @@ using Gridify.EntityFramework;
 using Microsoft.EntityFrameworkCore;
 using PCShop_Backend.Data;
 using PCShop_Backend.Dtos.UserDtos;
+using PCShop_Backend.Dtos.UserDtos.CreateDto;
+using PCShop_Backend.Dtos.UserDtos.UpdateDto;
 using PCShop_Backend.Models;
 
 namespace PCShop_Backend.Service
@@ -76,6 +78,90 @@ namespace PCShop_Backend.Service
             }
             existingRole.RoleName = dto.RoleName;
             existingRole.Description = dto.Description;
+            await _context.SaveChangesAsync();
+        }
+
+        //------------User service----------------
+
+        public async Task<Paging<UserDto>> getUsers(GridifyQuery gridifyQuery)
+        {
+            var UserQuery = _context.Users.Select(user => new UserDto
+            {
+                UserId = user.UserId,
+                Username = user.Username,
+                Email = user.Email,
+                FullName = user.FullName,
+                PhoneNumber = user.PhoneNumber,
+                RoleId = user.RoleId,
+                Address = user.Address,
+                City = user.City,
+                Country = user.Country,
+                LoyaltyPoints = user.LoyaltyPoints,
+                CreatedAt = user.CreatedAt,
+                IsActive = user.IsActive
+            });
+
+            var result = await UserQuery.GridifyAsync(gridifyQuery);
+            return result;
+        }
+
+        public async Task<UserDto> GetUserById(int id)
+        {
+            var existingUser = await _context.Users
+                .Where(u => u.UserId == id)
+                .Select(user => new UserDto
+                {
+                    UserId = user.UserId,
+                    Username = user.Username,
+                    Email = user.Email,
+                    FullName = user.FullName,
+                    PhoneNumber = user.PhoneNumber,
+                    RoleId = user.RoleId,
+                    Address = user.Address,
+                    City = user.City,
+                    Country = user.Country,
+                    LoyaltyPoints = user.LoyaltyPoints,
+                    CreatedAt = user.CreatedAt,
+                    IsActive = user.IsActive
+                })
+                .FirstOrDefaultAsync();
+
+            if (existingUser == null)
+            {
+                throw new Exception("User not found");
+            }
+
+            return existingUser;
+        }
+
+        public Task RegisterUser(RegisterUserDto dto)
+        {
+            throw new NotImplementedException();
+        }
+
+        public async Task DeleletUser(int userId)
+        {
+            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+            if (existingUser == null)
+            {
+                throw new Exception("User not found");
+            }
+            _context.Users.Remove(existingUser);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task UpdateUser(int userId, UpdateUserDto dto)
+        {
+            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+            if (existingUser == null)
+            {
+                throw new Exception("User not found");
+            }
+            existingUser.FullName = dto.FullName;
+            existingUser.PhoneNumber = dto.PhoneNumber;
+            existingUser.Address = dto.Address;
+            existingUser.City = dto.City;
+            existingUser.Country = dto.Country;
             await _context.SaveChangesAsync();
         }
     }

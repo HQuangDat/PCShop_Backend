@@ -1,8 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace PCShop_Backend.Dtos
+namespace PCShop_Backend.Dtos.ProductDtos.UpdateDto
 {
-    public class createComponentDto
+    public class updateComponentDto
     {
         [Required]
         [MaxLength(100)]

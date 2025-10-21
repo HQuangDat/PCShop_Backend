@@ -1,5 +1,7 @@
 using Gridify;
 using PCShop_Backend.Dtos;
+using PCShop_Backend.Dtos.ProductDtos.CreateDto;
+using PCShop_Backend.Dtos.ProductDtos.UpdateDto;
 using PCShop_Backend.Models;
 
 namespace PCShop_Backend.Service

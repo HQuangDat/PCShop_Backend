@@ -1,7 +1,8 @@
+using PCShop_Backend.Dtos.ProductDtos.CreateDto;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
-namespace PCShop_Backend.Dtos
+namespace PCShop_Backend.Dtos.ProductDtos.UpdateDto
 {
     public class UpdatePcBuildDto
     {

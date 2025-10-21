@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using OpenQA.Selenium;
 using PCShop_Backend.Data;
 using PCShop_Backend.Dtos;
+using PCShop_Backend.Dtos.ProductDtos.CreateDto;
+using PCShop_Backend.Dtos.ProductDtos.UpdateDto;
 using PCShop_Backend.Models;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
