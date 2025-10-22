@@ -1,6 +1,8 @@
 
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PCShop_Backend.Data;
+using PCShop_Backend.Models;
 using PCShop_Backend.Service;
 using Serilog;
 
@@ -31,6 +33,7 @@ namespace PCShop_Backend
                 builder.Services.AddScoped<IAuthService, AuthService>();
                 builder.Services.AddScoped<IOrderService, OrderService>();
                 builder.Services.AddScoped<ISupportService, SupportService>();
+                builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
                 var app = builder.Build();
 

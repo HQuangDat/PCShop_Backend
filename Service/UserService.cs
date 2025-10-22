@@ -1,21 +1,25 @@
 using Gridify;
 using Gridify.EntityFramework;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PCShop_Backend.Data;
 using PCShop_Backend.Dtos.UserDtos;
 using PCShop_Backend.Dtos.UserDtos.CreateDto;
 using PCShop_Backend.Dtos.UserDtos.UpdateDto;
 using PCShop_Backend.Models;
+using Serilog;
 
 namespace PCShop_Backend.Service
 {
     public class UserService : IUserService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IPasswordHasher<User> _passwordHasher;
 
-        public UserService(ApplicationDbContext context)
+        public UserService(ApplicationDbContext context, IPasswordHasher<User> passwordHasher)
         {
             _context = context;
+            _passwordHasher = passwordHasher;
         }
 
         //------------Role service----------------
@@ -134,9 +138,26 @@ namespace PCShop_Backend.Service
             return existingUser;
         }
 
-        public Task RegisterUser(RegisterUserDto dto)
+        public async Task RegisterUser(RegisterUserDto dto)
         {
-            throw new NotImplementedException();
+            var user = new User
+            {
+                Username = dto.Username,
+                Email = dto.Email,
+                PasswordHash = _passwordHasher.HashPassword(null!, dto.Password),
+                FullName = dto.FullName,
+                PhoneNumber = dto.PhoneNumber,
+                RoleId = 3,
+                Address = dto.Address,
+                City = dto.City,
+                Country = dto.Country,
+                CreatedAt = DateTime.UtcNow,
+                IsActive = true,
+                LoyaltyPoints = 0
+            };
+            await _context.Users.AddAsync(user);
+            await _context.SaveChangesAsync();
+            Log.Information($"New user registered: {dto.Username}");
         }
 
         public async Task DeleletUser(int userId)

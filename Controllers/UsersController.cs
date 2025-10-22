@@ -81,6 +81,7 @@ namespace PCShop_Backend.Controllers
         [HttpPost("users/register")]
         public async Task<IActionResult> RegisterUser(RegisterUserDto dto)
         {
+            await _userService.RegisterUser(dto);
             return Ok();
         }
 
