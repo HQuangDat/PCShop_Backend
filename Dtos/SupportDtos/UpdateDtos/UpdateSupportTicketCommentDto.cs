@@ -2,5 +2,6 @@
 {
     public class UpdateSupportTicketCommentDto
     {
+        public string CommentText { get; set; }
     }
 }

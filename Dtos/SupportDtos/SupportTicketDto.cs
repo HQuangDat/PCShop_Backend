@@ -14,6 +14,6 @@ namespace PCShop_Backend.Dtos.SupportDtos
         public string? Priority { get; set; }
         public int? AssignedToUserId { get; set; }
         public DateTime? UpdatedAt { get; set; }
-        public List<TicketCommentsDto>? Comments { get; set; } = new List<TicketCommentsDto>();
+        public List<SupportTicketCommentDto>? Comments { get; set; } = new List<SupportTicketCommentDto>();
     }
 }

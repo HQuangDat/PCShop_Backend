@@ -1,10 +1,13 @@
 using Gridify;
+using Gridify.EntityFramework;
 using Microsoft.EntityFrameworkCore;
 using PCShop_Backend.Data;
 using PCShop_Backend.Dtos.SupportDtos;
 using PCShop_Backend.Dtos.SupportDtos.CreateDtos;
 using PCShop_Backend.Dtos.SupportDtos.UpdateDtos;
 using PCShop_Backend.Models;
+using Serilog;
+using System.ComponentModel.Design;
 
 namespace PCShop_Backend.Service
 {
@@ -20,7 +23,7 @@ namespace PCShop_Backend.Service
         //--------Support Tickets--------//
         public async Task<Paging<SupportTicketDto>> getTickets(GridifyQuery gridifyQuery)
         {
-            var query = await  _context.Tickets
+            var query = _context.Tickets
                             .Include(cm => cm.TicketComments)
                             .Select(t => new SupportTicketDto
                             {
@@ -40,7 +43,7 @@ namespace PCShop_Backend.Service
                                 }).ToList()
                             });
 
-            var result = await query.AsQueryable().Gridify(gridifyQuery);
+            var result = await query.GridifyAsync(gridifyQuery);
             return result;
         }
 
@@ -66,7 +69,7 @@ namespace PCShop_Backend.Service
                                     CreatedAt = tc.CreatedAt
                                 }).ToList()
                             })
-                            .FirstOrDefault();
+                            .FirstOrDefaultAsync();
             if (ticket == null)
             {
                 throw new Exception("Ticket not found");
@@ -91,6 +94,21 @@ namespace PCShop_Backend.Service
             await _context.Tickets.AddAsync(newTicket);
             await _context.SaveChangesAsync();
         }
+        public async Task UpdateSupportTicket(int ticketId, UpdateSupportTicketDto dto)
+        {
+            var existingTicket =  await _context.Tickets.FindAsync(ticketId);
+            if (existingTicket == null)
+            {
+                Log.Information("Ticket with ID {TicketId} not found.", ticketId);
+                throw new Exception("Ticket not found");
+            }
+            existingTicket.Title = dto.Title;
+            existingTicket.Description = dto.Description;
+            existingTicket.Status = dto.Status;
+            existingTicket.Priority = dto.Priority;
+            _context.Tickets.Update(existingTicket);
+            await _context.SaveChangesAsync();
+        }
 
         public async Task DeleteSupportTicket(int ticketId)
         {
@@ -104,28 +122,63 @@ namespace PCShop_Backend.Service
         }
 
         //--------Ticket Comments--------//
-        public Task<Paging<SupportTicketCommentDto>> getTicketComments(int ticketId, GridifyQuery gridifyQuery)
+        public async Task<Paging<SupportTicketCommentDto>> getTicketComments(int ticketId, GridifyQuery gridifyQuery)
         {
-            throw new NotImplementedException();
+            var CommentsQuery = _context.TicketComments
+                                .Where(td => td.TicketId == ticketId)
+                                .Select(tc => new SupportTicketCommentDto
+                                {
+                                    CommentId = tc.CommentId,
+                                    TicketId = tc.TicketId,
+                                    UserId = tc.UserId,
+                                    CommentText = tc.CommentText,
+                                    CreatedAt = tc.CreatedAt
+                                });
+            var result = await CommentsQuery.GridifyAsync(gridifyQuery);
+            return result;
         }
 
-        public Task AddTicketComment(int userId, AddSupportTicketCommentDto dto)
+        public async Task AddTicketComment(int ticketId,AddSupportTicketCommentDto dto)
         {
-            throw new NotImplementedException();
+            var addComment = new TicketComment
+            {
+                TicketId = ticketId,
+                UserId = 1, // Placeholder for UserId, should be replaced with actual user context
+                CommentText = dto.CommentText,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _context.TicketComments.AddAsync(addComment);
+            await _context.SaveChangesAsync();
         }
-        public Task UpdateTicketComment(int ticketId, int commentId, UpdateSupportTicketCommentDto dto)
+        public async Task UpdateTicketComment(int ticketId, int commentId, UpdateSupportTicketCommentDto dto)
         {
-            throw new NotImplementedException();
+            var existingComment = await _context.TicketComments
+                                       .FirstOrDefaultAsync(tc => tc.TicketId == ticketId && tc.CommentId == commentId);
+            if(existingComment == null)
+            {
+                Log.Error("Comment with ID {CommentId} for Ticket ID {TicketId} not found.", commentId, ticketId);
+                throw new Exception("Comment not found");
+            }
+
+            existingComment.CommentText = dto.CommentText;
+            _context.TicketComments.Update(existingComment);
+            await _context.SaveChangesAsync();
         }
 
         public Task DeleteTicketComment(int ticketId, int commentId)
         {
-            throw new NotImplementedException();
+            var existingComment =  _context.TicketComments
+                                       .FirstOrDefault(tc => tc.TicketId == ticketId && tc.CommentId == commentId);
+            if (existingComment == null)
+            {
+                Log.Error("Comment with ID {CommentId} for Ticket ID {TicketId} not found.", commentId, ticketId);
+                throw new Exception("Comment not found");
+            }
+
+            _context.TicketComments.Remove(existingComment);
+            return _context.SaveChangesAsync();
         }
 
-        public Task UpdateSupportTicket(int ticketId, UpdateSupportTicketDto dto)
-        {
-            throw new NotImplementedException();
-        }
+
     }
 }
