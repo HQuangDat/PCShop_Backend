@@ -60,7 +60,8 @@ namespace PCShop_Backend.Controllers
             return Ok(new { message = "Deleted support ticket success!" });
         }
 
-        // Additional endpoints for support ticket comments can be added here
+        //--------- Additional endpoints for support ticket comments can be added here
+
         [HttpGet("{id}/ticketComments")]
         public async Task<IActionResult> GetAllTicketComments(int ticketId, [FromQuery]GridifyQuery query)
         {

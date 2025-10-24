@@ -1,4 +1,5 @@
 
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PCShop_Backend.Data;
@@ -34,6 +35,31 @@ namespace PCShop_Backend
                 builder.Services.AddScoped<IOrderService, OrderService>();
                 builder.Services.AddScoped<ISupportService, SupportService>();
                 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+                builder.Services.AddHttpContextAccessor();
+
+                // Authentication and Authorization can be configured here
+                builder.Services.AddAuthentication(options =>
+                {
+                    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                    //options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+                })
+                    //.AddGoogle(options =>
+                    //{
+                    //    options.ClientId = builder.Configuration.GetSection("GoogleKey:ClientId").Value;
+                    //    options.ClientSecret = builder.Configuration.GetSection("GoogleKey:ClientSecret").Value;
+                    //})
+                    .AddCookie(options =>
+                    {
+                        options.LoginPath = "/Auth/Login";
+                        options.LogoutPath = "/Auth/Logout";
+                    });
+
+                builder.Services.AddAuthorization(options =>
+                {
+                    options.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
+                    options.AddPolicy("User", policy => policy.RequireRole("User"));
+                    options.AddPolicy("Employee", policy => policy.RequireRole("Employee"));
+                });
 
                 var app = builder.Build();
 
@@ -46,6 +72,7 @@ namespace PCShop_Backend
 
                 app.UseHttpsRedirection();
 
+                app.UseAuthentication();
                 app.UseAuthorization();
 
 

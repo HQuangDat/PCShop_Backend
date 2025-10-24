@@ -8,16 +8,19 @@ using PCShop_Backend.Dtos.SupportDtos.UpdateDtos;
 using PCShop_Backend.Models;
 using Serilog;
 using System.ComponentModel.Design;
+using System.Security.Claims;
 
 namespace PCShop_Backend.Service
 {
     public class SupportService : ISupportService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public SupportService(ApplicationDbContext context)
+        public SupportService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
         {
             _context = context;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         //--------Support Tickets--------//
@@ -80,10 +83,12 @@ namespace PCShop_Backend.Service
 
         public async Task CreateSupportTicket(CreateSupportTicketDto dto)
         {
+            var userIdClaim = _httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            int.TryParse(userIdClaim, out var userId);
             var newTicket = new Ticket
             {
                 Title = dto.Title,
-                UserId = 1, // Placeholder for UserId, should be replaced with actual user context
+                UserId = userId,
                 Description = dto.Description,
                 Status = dto.Status,
                 Priority = dto.Priority,
@@ -140,10 +145,12 @@ namespace PCShop_Backend.Service
 
         public async Task AddTicketComment(int ticketId,AddSupportTicketCommentDto dto)
         {
+            var userIdClaim = _httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            int.TryParse(userIdClaim, out var userId);
             var addComment = new TicketComment
             {
                 TicketId = ticketId,
-                UserId = 1, // Placeholder for UserId, should be replaced with actual user context
+                UserId = userId,
                 CommentText = dto.CommentText,
                 CreatedAt = DateTime.UtcNow
             };

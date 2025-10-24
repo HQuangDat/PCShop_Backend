@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using PCShop_Backend.Dtos.AuthDtos;
 using PCShop_Backend.Service;
 
 namespace PCShop_Backend.Controllers
@@ -13,5 +14,20 @@ namespace PCShop_Backend.Controllers
         {
             _authService = authService;
         }
+
+        [HttpPost("Login")]
+        public async Task<IActionResult> Login([FromForm] LoginDto dto)
+        {
+            try
+            {
+                await _authService.Login(dto);
+                return Ok("Login successful");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
     }
 }
