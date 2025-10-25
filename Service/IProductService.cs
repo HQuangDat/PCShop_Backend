@@ -29,8 +29,8 @@ namespace PCShop_Backend.Service
         //Pcbuild
         Task<Paging<PcBuildDto>> getPcBuilds(GridifyQuery query);
         Task<PcBuildDto> getPcbuildById(int buildId);
-        Task createPcbuild(int userId, CreatePcBuildDto createPcBuildDto);
-        Task UpdatePcBuild(int buildId, int userId, UpdatePcBuildDto dto);
+        Task createPcbuild(CreatePcBuildDto createPcBuildDto);
+        Task UpdatePcBuild(int buildId, UpdatePcBuildDto dto);
         Task deletePcbuild(int buildId);
     }
 }

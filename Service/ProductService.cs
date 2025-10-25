@@ -10,16 +10,19 @@ using PCShop_Backend.Dtos.ProductDtos.UpdateDto;
 using PCShop_Backend.Models;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 
 namespace PCShop_Backend.Service
 {
     public class ProductService : IProductService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public ProductService(ApplicationDbContext context)
+        public ProductService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
         {
             _context = context;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         // ==================Component==================\\
@@ -300,7 +303,7 @@ namespace PCShop_Backend.Service
                     Description = b.Description,
                     IsPublic = b.IsPublic ?? false,
                     CreatedByUserId = b.CreatedByUserId,
-                    CreatedByUserName = b.CreatedByUser.FullName ?? "Unknown",
+                    CreatedByUserName = b.CreatedByUser!.FullName ?? "Unknown",
                     CreatedAt = b.CreatedAt ?? DateTime.UtcNow,
                     UpdatedAt = b.UpdatedAt,
                     Components = b.PcbuildComponents.Select(bc => new PcBuildComponentDto
@@ -359,8 +362,10 @@ namespace PCShop_Backend.Service
             };
         }
 
-        public async Task createPcbuild(int userId, CreatePcBuildDto createPcBuildDto)
+        public async Task createPcbuild(CreatePcBuildDto createPcBuildDto)
         {
+            var userIdClaims = _httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            int.TryParse(userIdClaims, out var userId);
             var componentsId = createPcBuildDto.Components.Select(c => c.ComponentId).ToList();
             var components = await _context.Components.Where(c => componentsId
                 .Contains(c.ComponentId) && c.IsActive == true)
@@ -406,8 +411,11 @@ namespace PCShop_Backend.Service
             await _context.SaveChangesAsync();
         }
 
-        public async Task UpdatePcBuild(int buildId, int userId, UpdatePcBuildDto dto)
+        public async Task UpdatePcBuild(int buildId, UpdatePcBuildDto dto)
         {
+            var userIdClaims = _httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            int.TryParse(userIdClaims, out var userId);
+
             var build = await _context.Pcbuilds
                 .Include(b => b.PcbuildComponents)  
                 .FirstOrDefaultAsync(b => b.BuildId == buildId);
