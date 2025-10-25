@@ -105,26 +105,108 @@ namespace PCShop_Backend.Service
 
 
         // ========== Receipts Section ==========
-        public Task<Paging<ReceiptDtos>> getReceipts(GridifyQuery query)
+        public async Task<Paging<ReceiptDtos>> getReceipts(GridifyQuery query)
         {
-            throw new NotImplementedException();
+            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+            var receipts = await _context.Receipts
+                .Where(r => r.UserId == userId)
+                .Select(r => new ReceiptDtos
+                {
+                    ReceiptId = r.ReceiptId,
+                    UserId = r.UserId,
+                    TotalAmount = r.TotalAmount,
+                    Status = r.Status,
+                    PaymentMethod = r.PaymentMethod,
+                    ShippingAddress = r.ShippingAddress,
+                    City = r.City,
+                    Country = r.Country,
+                    TrackingNumber = r.TrackingNumber,
+                    Notes = r.Notes,
+                    CreatedAt = r.CreatedAt,
+                    UpdatedAt = r.UpdatedAt
+                })
+                .GridifyAsync(query);
+            return receipts;
         }
-        public Task<ReceiptDtos> getReceiptDetails(int receiptId)
+        public async Task<ReceiptDtos> getReceiptById(int receiptId)
         {
-            throw new NotImplementedException();
+            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+            var existingReceipt = await _context.Receipts
+                .Where(r => r.ReceiptId == receiptId && r.UserId == userId)
+                .Select(r => new ReceiptDtos
+                {
+                    ReceiptId = r.ReceiptId,
+                    UserId = r.UserId,
+                    TotalAmount = r.TotalAmount,
+                    Status = r.Status,
+                    PaymentMethod = r.PaymentMethod,
+                    ShippingAddress = r.ShippingAddress,
+                    City = r.City,
+                    Country = r.Country,
+                    TrackingNumber = r.TrackingNumber,
+                    Notes = r.Notes,
+                    CreatedAt = r.CreatedAt,
+                    UpdatedAt = r.UpdatedAt
+                })
+                .FirstOrDefaultAsync();
+            if(existingReceipt == null)
+            {
+                throw new Exception("Receipt not found for the user.");
+            }
+            return existingReceipt!;
         }
-        public Task CreateReceipt(CreateReceiptDto dto)
+        public async Task CreateReceipt(CreateReceiptDto dto)
         {
-            throw new NotImplementedException();
+            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+            var newReceipt = new Receipt
+            {
+                UserId = userId,
+                TotalAmount = dto.TotalAmount,
+                Status = dto.Status,
+                PaymentMethod = dto.PaymentMethod,
+                ShippingAddress = dto.ShippingAddress,
+                City = dto.City,
+                Country = dto.Country,
+                TrackingNumber = dto.TrackingNumber,
+                Notes = dto.Notes,
+                CreatedAt = DateTime.UtcNow            
+            };
+            await _context.Receipts.AddAsync(newReceipt);
+            Log.Information($"User with id: {userId} has created a new receipt: {newReceipt.ReceiptId}");
+            await _context.SaveChangesAsync();
         }
-        public Task UpdateReceipt(int receiptId, UpdateReceiptDto dto)
+        public async Task UpdateReceipt(int receiptId, UpdateReceiptDto dto)
         {
-            throw new NotImplementedException();
+            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+            var existingReceipt =  _context.Receipts.FirstOrDefault(r => r.ReceiptId == receiptId && r.UserId == userId);
+            if(existingReceipt == null)
+            {
+                throw new Exception("Receipt not found for the user.");
+            }
+            existingReceipt.TotalAmount = dto.TotalAmount;
+            existingReceipt.Status = dto.Status;
+            existingReceipt.PaymentMethod = dto.PaymentMethod;
+            existingReceipt.ShippingAddress = dto.ShippingAddress;
+            existingReceipt.City = dto.City;
+            existingReceipt.Country = dto.Country;
+            existingReceipt.TrackingNumber = dto.TrackingNumber;
+            existingReceipt.Notes = dto.Notes;
+            existingReceipt.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            Log.Information($"User with id: {userId} has updated receipt: {existingReceipt.ReceiptId}");
         }
 
-        public Task DeleteReceipt(int receiptId)
+        public async Task DeleteReceipt(int receiptId)
         {
-            throw new NotImplementedException();
+            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+            var existingReceipt = await _context.Receipts.FirstOrDefaultAsync(r => r.ReceiptId == receiptId && r.UserId == userId);
+            if (existingReceipt == null)
+            {
+                throw new Exception("Receipt not found for the user.");
+            }
+            _context.Receipts.Remove(existingReceipt);
+            Log.Information($"User with id: {userId} has deleted receipt: {existingReceipt.ReceiptId}");
+            await _context.SaveChangesAsync();
         }
 
         // ========== Receipt Items Section ==========
