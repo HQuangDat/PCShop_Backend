@@ -29,5 +29,11 @@ namespace PCShop_Backend.Controllers
             }
         }
 
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
+        {
+            await _authService.Logout();
+            return Ok("Logged out successfully");
+        }
     }
 }

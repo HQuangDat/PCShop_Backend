@@ -210,27 +210,86 @@ namespace PCShop_Backend.Service
         }
 
         // ========== Receipt Items Section ==========
-        public Task<Paging<ReceiptItemsDto>> getReceiptItems(GridifyQuery query)
+        public async Task<Paging<ReceiptItemsDto>> getReceiptItems(GridifyQuery query)
         {
-            throw new NotImplementedException();
+            var receiptItems = await _context.ReceiptItems
+                .Select(ri => new ReceiptItemsDto
+                {
+                    ReceiptItemId = ri.ReceiptItemId,
+                    ReceiptId = ri.ReceiptId,
+                    ComponentId = ri.ComponentId,
+                    BuildId = ri.BuildId,
+                    ItemName = ri.ItemName,
+                    Quantity = ri.Quantity,
+                    UnitPrice = ri.UnitPrice
+                })
+                .GridifyAsync(query);
+            return receiptItems;
         }
-        public Task<ReceiptItemsDto> GetReceiptItemById(int receiptItemId)
+        public async Task<ReceiptItemsDto> GetReceiptItemById(int receiptItemId)
         {
-            throw new NotImplementedException();
+            var existingReceiptItem = await _context.ReceiptItems
+                .Where(ri => ri.ReceiptItemId == receiptItemId)
+                .Select(ri => new ReceiptItemsDto
+                {
+                    ReceiptItemId = ri.ReceiptItemId,
+                    ReceiptId = ri.ReceiptId,
+                    ComponentId = ri.ComponentId,
+                    BuildId = ri.BuildId,
+                    ItemName = ri.ItemName,
+                    Quantity = ri.Quantity,
+                    UnitPrice = ri.UnitPrice
+                })
+                .FirstOrDefaultAsync();
+            if (existingReceiptItem == null)
+            {
+                throw new Exception("Receipt item not found.");
+            }
+            return existingReceiptItem!;
         }
 
-        public Task CreateReceiptItem(CreateReceiptItemDto dto)
+        public async Task CreateReceiptItem(CreateReceiptItemDto dto)
         {
-            throw new NotImplementedException();
+            var newReceiptItem = new ReceiptItem
+            {
+                ReceiptId = dto.ReceiptId,
+                ComponentId = dto.ComponentId,
+                BuildId = dto.BuildId,
+                ItemName = dto.ItemName,
+                Quantity = dto.Quantity,
+                UnitPrice = dto.UnitPrice
+            };
+            await _context.ReceiptItems.AddAsync(newReceiptItem);
+            Log.Information($"A new receipt item with id: {newReceiptItem.ReceiptItemId} has been created");
+            await _context.SaveChangesAsync();
         }
 
-        public Task UpdateReceiptItem(int receiptItemId, UpdateReceiptItemDto dto)
+        public async Task UpdateReceiptItem(int receiptItemId, UpdateReceiptItemDto dto)
         {
-            throw new NotImplementedException();
+            var existingReceiptItem = await _context.ReceiptItems.FirstOrDefaultAsync(ri => ri.ReceiptItemId == receiptItemId);
+            if (existingReceiptItem == null)
+            {
+                throw new Exception("Receipt item not found.");
+            }
+            existingReceiptItem.ReceiptId = dto.ReceiptId;
+            existingReceiptItem.ComponentId = dto.ComponentId;
+            existingReceiptItem.BuildId = dto.BuildId;
+            existingReceiptItem.ItemName = dto.ItemName;
+            existingReceiptItem.Quantity = dto.Quantity;
+            existingReceiptItem.UnitPrice = dto.UnitPrice;
+            Log.Information($"Receipt item with id: {existingReceiptItem.ReceiptItemId} has been updated");
+            await _context.SaveChangesAsync();
         }
-        public Task DeleteReceiptItem(int receiptItemId)
+        public async Task DeleteReceiptItem(int receiptItemId)
         {
-            throw new NotImplementedException();
+            var existingReceiptItem = await _context.ReceiptItems.FirstOrDefaultAsync(ri => ri.ReceiptItemId == receiptItemId);
+            if (existingReceiptItem == null)
+            {
+                throw new Exception("Receipt item not found.");
+            }
+            _context.ReceiptItems.Remove(existingReceiptItem);
+            Log.Information($"Receipt item with id: {existingReceiptItem.ReceiptItemId} has been deleted");
+            await _context.SaveChangesAsync();
         }
     }
 }
