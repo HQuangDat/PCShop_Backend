@@ -37,6 +37,10 @@ namespace PCShop_Backend
                 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
                 builder.Services.AddHttpContextAccessor();
 
+                builder.Services.AddStackExchangeRedisCache(redisOptions =>
+                    redisOptions.Configuration = builder.Configuration.GetConnectionString("Redis")
+                );
+
                 // Authentication and Authorization can be configured here
                 builder.Services.AddAuthentication(options =>
                 {

@@ -1,7 +1,11 @@
 ﻿using Gridify;
 using Gridify.EntityFramework;
 using Humanizer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Identity.Client;
+using Newtonsoft.Json;
 using OpenQA.Selenium;
 using PCShop_Backend.Data;
 using PCShop_Backend.Dtos;
@@ -18,17 +22,33 @@ namespace PCShop_Backend.Service
     {
         private readonly ApplicationDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IDistributedCache _distributedCache;
 
-        public ProductService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
+        public ProductService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, IDistributedCache distributedCache)
         {
             _context = context;
             _httpContextAccessor = httpContextAccessor;
+            _distributedCache = distributedCache;
         }
 
         // ==================Component==================\\
         public async Task<Paging<ComponentDto>> getComponents(GridifyQuery query)
         {
-            var componentsQuery = _context.Components
+            var key = $"Components_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+            //check if data is cached
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<Paging<ComponentDto>>(cachedData)!;
+            }
+            //if not cached, query the database
+            var componentsQuery = await _context.Components
                 .Include(ct => ct.Category)
                 .Include(sp => sp.ComponentSpecs)
                 .Select(c => new ComponentDto
@@ -47,9 +67,17 @@ namespace PCShop_Backend.Service
                         SpecValue = s.SpecValue,
                         DisplayOrder = s.DisplayOrder
                     }).ToList()
-                });
-            var result = await componentsQuery.GridifyAsync(query);
-            return result;
+                }).GridifyAsync(query);
+
+            if (componentsQuery == null)
+            {
+                throw new NotFoundException("No components found");
+            }
+
+            //cached that data
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(componentsQuery), options);
+
+            return componentsQuery;
         }
         public async Task createComponent(createComponentDto createComponentDto)
         {
@@ -70,6 +98,20 @@ namespace PCShop_Backend.Service
         }
         public async Task<ComponentDto> getComponentById(int id)
         {
+            var key = $"Component_{id}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<ComponentDto>(cachedData)!;
+            }
+
             var component = await _context.Components
                 .Include(c => c.Category)
                 .Include(c => c.ComponentSpecs)
@@ -80,7 +122,7 @@ namespace PCShop_Backend.Service
                 throw new NotFoundException($"Component with ID {id} not found");
             }
 
-            return new ComponentDto
+            var componentDto = new ComponentDto
             {
                 ComponentId = component.ComponentId,
                 Name = component.Name,
@@ -97,6 +139,10 @@ namespace PCShop_Backend.Service
                     DisplayOrder = s.DisplayOrder
                 }).ToList()
             };
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(componentDto), options);
+
+            return componentDto;
         }
         public async Task updateComponent(int id, updateComponentDto updateComponentDto)
         {
@@ -166,6 +212,20 @@ namespace PCShop_Backend.Service
         // ==================ComponentCategory==================\\
         public async Task<Paging<ComponentCategoriesDto>> getComponentCategories(GridifyQuery query)
         {
+            var key = $"ComponentCategories_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<Paging<ComponentCategoriesDto>>(cachedData)!;
+            }
+
             var categoriesQuery = _context.ComponentCategories
                 .Select(cate => new ComponentCategoriesDto
                 {
@@ -174,6 +234,9 @@ namespace PCShop_Backend.Service
                     Description = cate.Description
                 });
             var result = await categoriesQuery.GridifyAsync(query);
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
+
             return result;
         }
         public async Task addComponentCategory(CreateComponentCategoryDto createComponentCategoryDto)
@@ -187,17 +250,36 @@ namespace PCShop_Backend.Service
         }
         public async Task<ComponentCategoriesDto?> getComponentCategoryById(int categoryId)
         {
+            var key = $"ComponentCategory_{categoryId}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<ComponentCategoriesDto>(cachedData)!;
+            }
+
             var category = await _context.ComponentCategories.FindAsync(categoryId);
             if (category == null)
             {
                 throw new NotFoundException($"Category with ID {categoryId} not found");
             }
-            return new ComponentCategoriesDto
+
+            var categoryDto = new ComponentCategoriesDto
             {
                 CategoryId = category.CategoryId,
                 CategoryName = category.CategoryName,
                 Description = category.Description
             };
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(categoryDto), options);
+
+            return categoryDto;
         }
         public Task updateComponentCategory(int componentId, UpdateComponentCategoryDto updateComponentCategoryDto)
         {
@@ -235,6 +317,20 @@ namespace PCShop_Backend.Service
         }
         public async Task<Paging<ComponentSpecsDto>> getComponentSpecs(GridifyQuery query)
         {
+            var key = $"ComponentSpecs_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<Paging<ComponentSpecsDto>>(cachedData)!;
+            }
+
             var specsQuery = _context.ComponentSpecs
                 .Select(s => new ComponentSpecsDto
                 {
@@ -245,17 +341,34 @@ namespace PCShop_Backend.Service
                     DisplayOrder = s.DisplayOrder
                 });
             var result = await specsQuery.GridifyAsync(query);
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
+
             return result;
         }
         public async Task<ComponentSpecsDto> getComponentSpecById(int specId)
         {
+            var key = $"ComponentSpec_{specId}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<ComponentSpecsDto>(cachedData)!;
+            }
+
             var spec = await _context.ComponentSpecs.FindAsync(specId);
             if(spec == null)
             {
                 throw new NotFoundException($"Component Spec with ID {specId} not found");
             }
 
-            return new ComponentSpecsDto
+            var specDto = new ComponentSpecsDto
             {
                 SpecId = spec.SpecId,
                 ComponentId = spec.ComponentId,
@@ -263,6 +376,10 @@ namespace PCShop_Backend.Service
                 SpecValue = spec.SpecValue,
                 DisplayOrder = spec.DisplayOrder
             };
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(specDto), options);
+
+            return specDto;
         }
         public async Task updateComponentSpecs(int specId, UpdateComponentSpecDto updateComponentSpecDto)
         {
@@ -291,6 +408,20 @@ namespace PCShop_Backend.Service
 
         public async Task<Paging<PcBuildDto>> getPcBuilds(GridifyQuery query)
         {
+            var key = $"PcBuilds_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<Paging<PcBuildDto>>(cachedData)!;
+            }
+
             var build =  _context.Pcbuilds
                 .Include(b => b.CreatedByUser)
                 .Include(b => b.PcbuildComponents)
@@ -320,11 +451,27 @@ namespace PCShop_Backend.Service
                     TotalPrice = b.PcbuildComponents.Sum(bc => bc.Component.Price * bc.Quantity)
                 });
             var result = await build.GridifyAsync(query);
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
+
             return result;
         }
-
         public async Task<PcBuildDto> getPcbuildById(int buildId)
         {
+            var key = $"PcBuild_{buildId}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<PcBuildDto>(cachedData)!;
+            }
+
             var build = await _context.Pcbuilds
                 .Include(b => b.CreatedByUser)
                 .Include(b => b.PcbuildComponents)
@@ -347,7 +494,7 @@ namespace PCShop_Backend.Service
                 ImageUrl = bc.Component.ImageUrl
             }).ToList();
 
-            return new PcBuildDto
+            var buildDto = new PcBuildDto
             {
                 BuildId = build.BuildId,
                 BuildName = build.BuildName,
@@ -360,12 +507,16 @@ namespace PCShop_Backend.Service
                 Components = components,
                 TotalPrice = components.Sum(c => c.Subtotal),
             };
-        }
 
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(buildDto), options);
+
+            return buildDto;
+        }
         public async Task createPcbuild(CreatePcBuildDto createPcBuildDto)
         {
             var userIdClaims = _httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier);
             int.TryParse(userIdClaims, out var userId);
+
             var componentsId = createPcBuildDto.Components.Select(c => c.ComponentId).ToList();
             var components = await _context.Components.Where(c => componentsId
                 .Contains(c.ComponentId) && c.IsActive == true)
@@ -410,7 +561,6 @@ namespace PCShop_Backend.Service
             }
             await _context.SaveChangesAsync();
         }
-
         public async Task UpdatePcBuild(int buildId, UpdatePcBuildDto dto)
         {
             var userIdClaims = _httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -422,9 +572,6 @@ namespace PCShop_Backend.Service
 
             if (build == null)
                 throw new NotFoundException($"PC Build with ID {buildId} not found");
-
-            if (build.CreatedByUserId != userId)
-                throw new Exception("You don't have permission to update this build");
 
             build.BuildName = dto.BuildName;
             build.Description = dto.Description;
@@ -478,7 +625,6 @@ namespace PCShop_Backend.Service
 
             await _context.SaveChangesAsync();
         }
-
         public Task deletePcbuild(int buildId)
         {
             var pcBuild = _context.Pcbuilds.Find(buildId);

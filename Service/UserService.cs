@@ -2,6 +2,8 @@ using Gridify;
 using Gridify.EntityFramework;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
+using Newtonsoft.Json;
 using PCShop_Backend.Data;
 using PCShop_Backend.Dtos.UserDtos;
 using PCShop_Backend.Dtos.UserDtos.CreateDto;
@@ -15,16 +17,32 @@ namespace PCShop_Backend.Service
     {
         private readonly ApplicationDbContext _context;
         private readonly IPasswordHasher<User> _passwordHasher;
+        private readonly IDistributedCache _distributedCache;
 
-        public UserService(ApplicationDbContext context, IPasswordHasher<User> passwordHasher)
+        public UserService(ApplicationDbContext context, IPasswordHasher<User> passwordHasher, IDistributedCache distributedCache)
         {
             _context = context;
             _passwordHasher = passwordHasher;
+            _distributedCache = distributedCache;
         }
 
         //------------Role service----------------
         public async Task<Paging<RoleDto>> getRoles(GridifyQuery query)
         {
+            var key = $"Roles_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<Paging<RoleDto>>(cachedData)!;
+            }
+
             var rolesQuery = _context.Roles.Select(role => new RoleDto
             {
                 RoleId = role.RoleId,
@@ -33,22 +51,44 @@ namespace PCShop_Backend.Service
             });
 
             var result = await rolesQuery.GridifyAsync(query);
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
+
             return result;
         }
 
         public async Task<RoleDto> getRoleById(int roleId)
         {
+            var key = $"Role_{roleId}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<RoleDto>(cachedData)!;
+            }
+
             var role = await _context.Roles.FindAsync(roleId);
             if(role == null)
             {
                 throw new Exception("Role not found");
             }
-            return new RoleDto
+
+            var roleDto = new RoleDto
             {
                 RoleId = role.RoleId,
                 RoleName = role.RoleName,
                 Description = role.Description
             };
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(roleDto), options);
+
+            return roleDto;
         }
 
         public async Task CreateRole(CreateRoleDto dto)
@@ -89,6 +129,20 @@ namespace PCShop_Backend.Service
 
         public async Task<Paging<UserDto>> getUsers(GridifyQuery gridifyQuery)
         {
+            var key = $"Users_{gridifyQuery.Page}_{gridifyQuery.PageSize}_{gridifyQuery.Filter}_{gridifyQuery.OrderBy}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<Paging<UserDto>>(cachedData)!;
+            }
+
             var UserQuery = _context.Users.Select(user => new UserDto
             {
                 UserId = user.UserId,
@@ -106,11 +160,28 @@ namespace PCShop_Backend.Service
             });
 
             var result = await UserQuery.GridifyAsync(gridifyQuery);
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
+
             return result;
         }
 
         public async Task<UserDto> GetUserById(int id)
         {
+            var key = $"User_{id}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<UserDto>(cachedData)!;
+            }
+
             var existingUser = await _context.Users
                 .Where(u => u.UserId == id)
                 .Select(user => new UserDto
@@ -134,6 +205,8 @@ namespace PCShop_Backend.Service
             {
                 throw new Exception("User not found");
             }
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(existingUser), options);
 
             return existingUser;
         }

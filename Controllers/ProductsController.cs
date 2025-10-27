@@ -1,4 +1,5 @@
 using Gridify;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PCShop_Backend.Dtos.ProductDtos.CreateDto;
 using PCShop_Backend.Dtos.ProductDtos.UpdateDto;
@@ -8,6 +9,7 @@ namespace PCShop_Backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Admin")]
     public class ProductsController : ControllerBase
     {
         private readonly IProductService _productService;
@@ -18,6 +20,7 @@ namespace PCShop_Backend.Controllers
         }
 
         // ==================Component==================\\
+        [AllowAnonymous]
         [HttpGet("components")]
         public async Task<IActionResult> ComponentsList([FromQuery] GridifyQuery query)
         {
@@ -25,6 +28,7 @@ namespace PCShop_Backend.Controllers
             return Ok(components);
         }
 
+        [AllowAnonymous]
         [HttpGet("component/{id}")]
         public async Task<IActionResult> GetComponentById(int id)
         {
@@ -58,12 +62,15 @@ namespace PCShop_Backend.Controllers
         }
 
         // ==================ComponentCategory==================\\
+        [AllowAnonymous]
         [HttpGet("component-categories")]
         public async Task<IActionResult> ComponentCategoriesList([FromQuery] GridifyQuery query)
         {
             var categories = await _productService.getComponentCategories(query);
             return Ok(categories);
         }
+
+        [AllowAnonymous]
         [HttpGet("component-category/{categoryId}")]
         public async Task<IActionResult> GetComponentCategoryById(int categoryId)
         {
@@ -97,6 +104,7 @@ namespace PCShop_Backend.Controllers
         }
 
         // ==================ComponentSpecs==================\\
+        [AllowAnonymous]
         [HttpGet("component-specs")]
         public async Task<IActionResult> ComponentSpecsList([FromQuery] GridifyQuery query)
         {
@@ -104,6 +112,7 @@ namespace PCShop_Backend.Controllers
             return Ok(specs);
         }
 
+        [AllowAnonymous]
         [HttpGet("component-spec/{specId}")]
         public async Task<IActionResult> GetComponentSpecById(int specId)
         {
@@ -133,6 +142,7 @@ namespace PCShop_Backend.Controllers
         }
 
         // ==================PCBuild==================\\
+        [AllowAnonymous]
         [HttpGet("pcbuilds")]
         public async Task<IActionResult> PcBuildsList([FromQuery] GridifyQuery query)
         {
@@ -140,6 +150,7 @@ namespace PCShop_Backend.Controllers
             return Ok(pcBuilds);
         }
 
+        [AllowAnonymous]
         [HttpGet("pcbuild/{id}")]
         public async Task<IActionResult> GetPcBuildById(int id)
         {
@@ -148,16 +159,16 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpPost("pcbuild/create")]
-        public async Task<IActionResult> CreatePcBuild(int userId,[FromBody] CreatePcBuildDto createPcBuildDto)
+        public async Task<IActionResult> CreatePcBuild([FromBody] CreatePcBuildDto createPcBuildDto)
         {
-            await _productService.createPcbuild(userId,createPcBuildDto);
+            await _productService.createPcbuild(createPcBuildDto);
             return Ok(new { message = "PC Build created successfully" });
         }
 
         [HttpPut("pcbuild/update/{id}")]
-        public async Task<IActionResult> UpdatePcBuild(int buildId,int userId, [FromBody] UpdatePcBuildDto updatePcBuildDto)
+        public async Task<IActionResult> UpdatePcBuild(int buildId, [FromBody] UpdatePcBuildDto updatePcBuildDto)
         {
-            await _productService.UpdatePcBuild(buildId, userId, updatePcBuildDto);
+            await _productService.UpdatePcBuild(buildId, updatePcBuildDto);
             return Ok(new { message = "PC Build updated successfully" });
         }
 

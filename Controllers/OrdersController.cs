@@ -1,4 +1,5 @@
 using Gridify;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PCShop_Backend.Dtos.OrderDtos.CreateDtos;
 using PCShop_Backend.Dtos.OrderDtos.UpdateDtos;
@@ -9,6 +10,7 @@ namespace PCShop_Backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class OrdersController : ControllerBase
     {
         private readonly IOrderService _orderService;
@@ -18,7 +20,7 @@ namespace PCShop_Backend.Controllers
             _orderService = orderService;
         }
 
-        //Cart Items
+        //============Cart Items
         [HttpGet("cart-items")]
         public async Task<IActionResult> GetCartItems([FromQuery] GridifyQuery query)
         {
@@ -34,7 +36,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpPut("cart-items/{cartId}")]
-        public async Task<IActionResult> UpdateCartItems(int cartId, [FromBody] UpdateCartItemsDto dto
+        public async Task<IActionResult> UpdateCartItems(int cartId, [FromBody] UpdateCartItemsDto dto)
         {
             await _orderService.UpdateCartItems(cartId, dto);
             return Ok(new { message = "Updated cart item." });
@@ -54,7 +56,7 @@ namespace PCShop_Backend.Controllers
             return Ok(new { message = "Cleared all items from cart." });
         }
 
-        //Receipts Section
+        //=================Receipts Section
         [HttpGet("receipts")]
         public async Task<IActionResult> GetReceipts([FromQuery] GridifyQuery query)
         {
@@ -90,7 +92,7 @@ namespace PCShop_Backend.Controllers
             return Ok(new { message = "Deleted receipt." });
         }
 
-        // Receipt Items Section
+        //===================== Receipt Items Section
         [HttpGet("receipt-items")]
         public async Task<IActionResult> GetReceiptItems([FromQuery] GridifyQuery query)
         {

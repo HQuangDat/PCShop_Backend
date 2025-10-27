@@ -1,6 +1,8 @@
 using Gridify;
 using Gridify.EntityFramework;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
+using Newtonsoft.Json;
 using PCShop_Backend.Data;
 using PCShop_Backend.Dtos.SupportDtos;
 using PCShop_Backend.Dtos.SupportDtos.CreateDtos;
@@ -16,16 +18,32 @@ namespace PCShop_Backend.Service
     {
         private readonly ApplicationDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IDistributedCache _distributedCache;
 
-        public SupportService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
+        public SupportService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, IDistributedCache distributedCache)
         {
             _context = context;
             _httpContextAccessor = httpContextAccessor;
+            _distributedCache = distributedCache;
         }
 
         //--------Support Tickets--------//
         public async Task<Paging<SupportTicketDto>> getTickets(GridifyQuery gridifyQuery)
         {
+            var key = $"Tickets_{gridifyQuery.Page}_{gridifyQuery.PageSize}_{gridifyQuery.Filter}_{gridifyQuery.OrderBy}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<Paging<SupportTicketDto>>(cachedData)!;
+            }
+
             var query = _context.Tickets
                             .Include(cm => cm.TicketComments)
                             .Select(t => new SupportTicketDto
@@ -47,11 +65,28 @@ namespace PCShop_Backend.Service
                             });
 
             var result = await query.GridifyAsync(gridifyQuery);
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
+
             return result;
         }
 
         public async Task<SupportTicketDto> getTicketById(int ticketId)
         {
+            var key = $"Ticket_{ticketId}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<SupportTicketDto>(cachedData)!;
+            }
+
             var ticket = await _context.Tickets
                             .Where(t => t.TicketId == ticketId)
                             .Include(cm => cm.TicketComments)
@@ -77,6 +112,8 @@ namespace PCShop_Backend.Service
             {
                 throw new Exception("Ticket not found");
             }
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(ticket), options);
 
             return ticket;
         }
@@ -129,6 +166,20 @@ namespace PCShop_Backend.Service
         //--------Ticket Comments--------//
         public async Task<Paging<SupportTicketCommentDto>> getTicketComments(int ticketId, GridifyQuery gridifyQuery)
         {
+            var key = $"TicketComments_{ticketId}_{gridifyQuery.Page}_{gridifyQuery.PageSize}_{gridifyQuery.Filter}_{gridifyQuery.OrderBy}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<Paging<SupportTicketCommentDto>>(cachedData)!;
+            }
+
             var CommentsQuery = _context.TicketComments
                                 .Where(td => td.TicketId == ticketId)
                                 .Select(tc => new SupportTicketCommentDto
@@ -140,6 +191,9 @@ namespace PCShop_Backend.Service
                                     CreatedAt = tc.CreatedAt
                                 });
             var result = await CommentsQuery.GridifyAsync(gridifyQuery);
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
+
             return result;
         }
 

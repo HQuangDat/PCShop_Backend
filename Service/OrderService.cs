@@ -1,6 +1,8 @@
 using Gridify;
 using Gridify.EntityFramework;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
+using Newtonsoft.Json;
 using PCShop_Backend.Data;
 using PCShop_Backend.Dtos;
 using PCShop_Backend.Dtos.OrderDtos;
@@ -16,17 +18,33 @@ namespace PCShop_Backend.Service
     {
         private readonly ApplicationDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IDistributedCache _distributedCache;
 
-        public OrderService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
+        public OrderService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, IDistributedCache distributedCache)
         {
             _context = context;
             _httpContextAccessor = httpContextAccessor;
+            _distributedCache = distributedCache;
         }
 
         // ========== Cart Items ==========
 
         public async Task<Paging<CartItemsDtos>> getCartItems(GridifyQuery query)
         {
+            var key = $"CartItems_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+            //check if data is cached
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<Paging<CartItemsDtos>>(cachedData)!;
+            }
+
             var cartitems = await _context.CartItems
                 .Include(pcb=>pcb.Build)
                 .Include(ci => ci.Component)
@@ -40,6 +58,9 @@ namespace PCShop_Backend.Service
                     AddedAt = ci.AddedAt
                 })
                 .GridifyAsync(query);
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(cartitems), options);
+
             return cartitems;
         }
 
@@ -107,6 +128,20 @@ namespace PCShop_Backend.Service
         // ========== Receipts Section ==========
         public async Task<Paging<ReceiptDtos>> getReceipts(GridifyQuery query)
         {
+            var key = $"Receipts_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<Paging<ReceiptDtos>>(cachedData)!;
+            }
+
             var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
             var receipts = await _context.Receipts
                 .Where(r => r.UserId == userId)
@@ -126,10 +161,27 @@ namespace PCShop_Backend.Service
                     UpdatedAt = r.UpdatedAt
                 })
                 .GridifyAsync(query);
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(receipts), options);
+
             return receipts;
         }
         public async Task<ReceiptDtos> getReceiptById(int receiptId)
         {
+            var key = $"Receipt_{receiptId}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<ReceiptDtos>(cachedData)!;
+            }
+
             var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
             var existingReceipt = await _context.Receipts
                 .Where(r => r.ReceiptId == receiptId && r.UserId == userId)
@@ -153,6 +205,9 @@ namespace PCShop_Backend.Service
             {
                 throw new Exception("Receipt not found for the user.");
             }
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(existingReceipt), options);
+
             return existingReceipt!;
         }
         public async Task CreateReceipt(CreateReceiptDto dto)
@@ -212,6 +267,20 @@ namespace PCShop_Backend.Service
         // ========== Receipt Items Section ==========
         public async Task<Paging<ReceiptItemsDto>> getReceiptItems(GridifyQuery query)
         {
+            var key = $"ReceiptItems_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<Paging<ReceiptItemsDto>>(cachedData)!;
+            }
+
             var receiptItems = await _context.ReceiptItems
                 .Select(ri => new ReceiptItemsDto
                 {
@@ -224,10 +293,27 @@ namespace PCShop_Backend.Service
                     UnitPrice = ri.UnitPrice
                 })
                 .GridifyAsync(query);
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(receiptItems), options);
+
             return receiptItems;
         }
         public async Task<ReceiptItemsDto> GetReceiptItemById(int receiptItemId)
         {
+            var key = $"ReceiptItem_{receiptItemId}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if(!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<ReceiptItemsDto>(cachedData)!;
+            }
+
             var existingReceiptItem = await _context.ReceiptItems
                 .Where(ri => ri.ReceiptItemId == receiptItemId)
                 .Select(ri => new ReceiptItemsDto
@@ -245,6 +331,9 @@ namespace PCShop_Backend.Service
             {
                 throw new Exception("Receipt item not found.");
             }
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(existingReceiptItem), options);
+
             return existingReceiptItem!;
         }
 
