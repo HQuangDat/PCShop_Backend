@@ -240,15 +240,12 @@ namespace PCShop_Backend.Service
             }
             existingReceipt.TotalAmount = dto.TotalAmount;
             existingReceipt.Status = dto.Status;
-            existingReceipt.PaymentMethod = dto.PaymentMethod;
-            existingReceipt.ShippingAddress = dto.ShippingAddress;
-            existingReceipt.City = dto.City;
-            existingReceipt.Country = dto.Country;
-            existingReceipt.TrackingNumber = dto.TrackingNumber;
-            existingReceipt.Notes = dto.Notes;
             existingReceipt.UpdatedAt = DateTime.UtcNow;
+
             await _context.SaveChangesAsync();
-            Log.Information($"User with id: {userId} has updated receipt: {existingReceipt.ReceiptId}");
+
+            var key = $"Receipt_{receiptId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
 
         public async Task DeleteReceipt(int receiptId)
@@ -262,6 +259,9 @@ namespace PCShop_Backend.Service
             _context.Receipts.Remove(existingReceipt);
             Log.Information($"User with id: {userId} has deleted receipt: {existingReceipt.ReceiptId}");
             await _context.SaveChangesAsync();
+
+            var key = $"Receipt_{receiptId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
 
         // ========== Receipt Items Section ==========
@@ -368,6 +368,9 @@ namespace PCShop_Backend.Service
             existingReceiptItem.UnitPrice = dto.UnitPrice;
             Log.Information($"Receipt item with id: {existingReceiptItem.ReceiptItemId} has been updated");
             await _context.SaveChangesAsync();
+
+            var key = $"ReceiptItem_{receiptItemId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
         public async Task DeleteReceiptItem(int receiptItemId)
         {
@@ -379,6 +382,9 @@ namespace PCShop_Backend.Service
             _context.ReceiptItems.Remove(existingReceiptItem);
             Log.Information($"Receipt item with id: {existingReceiptItem.ReceiptItemId} has been deleted");
             await _context.SaveChangesAsync();
+
+            var key = $"ReceiptItem_{receiptItemId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
     }
 }

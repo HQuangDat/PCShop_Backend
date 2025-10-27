@@ -150,6 +150,9 @@ namespace PCShop_Backend.Service
             existingTicket.Priority = dto.Priority;
             _context.Tickets.Update(existingTicket);
             await _context.SaveChangesAsync();
+
+            var key = $"Ticket_{ticketId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
 
         public async Task DeleteSupportTicket(int ticketId)
@@ -161,6 +164,9 @@ namespace PCShop_Backend.Service
             }
             _context.Tickets.Remove(ticket);
             await _context.SaveChangesAsync();
+
+            var key = $"Ticket_{ticketId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
 
         //--------Ticket Comments--------//
@@ -210,6 +216,9 @@ namespace PCShop_Backend.Service
             };
             await _context.TicketComments.AddAsync(addComment);
             await _context.SaveChangesAsync();
+
+            var key = $"Ticket_{ticketId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
         public async Task UpdateTicketComment(int ticketId, int commentId, UpdateSupportTicketCommentDto dto)
         {
@@ -224,9 +233,12 @@ namespace PCShop_Backend.Service
             existingComment.CommentText = dto.CommentText;
             _context.TicketComments.Update(existingComment);
             await _context.SaveChangesAsync();
+
+            var key = $"Ticket_{ticketId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
 
-        public Task DeleteTicketComment(int ticketId, int commentId)
+        public async Task DeleteTicketComment(int ticketId, int commentId)
         {
             var existingComment =  _context.TicketComments
                                        .FirstOrDefault(tc => tc.TicketId == ticketId && tc.CommentId == commentId);
@@ -237,7 +249,11 @@ namespace PCShop_Backend.Service
             }
 
             _context.TicketComments.Remove(existingComment);
-            return _context.SaveChangesAsync();
+
+            var key = $"Ticket_{ticketId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
+
+            await _context.SaveChangesAsync();
         }
 
 

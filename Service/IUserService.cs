@@ -12,14 +12,14 @@ namespace PCShop_Backend.Service
         Task<Paging<RoleDto>> getRoles(GridifyQuery gridifyQuery);
         Task<RoleDto> getRoleById(int roleId);
         Task CreateRole(CreateRoleDto dto);
-        Task UpdateRole(int userId, UpdateRoleDto dto);
+        Task UpdateRole(int roleId, UpdateRoleDto dto);
         Task DeleteRole(int roleId);
 
         //------------User service interface  ----------------
         Task<Paging<UserDto>> getUsers(GridifyQuery gridifyQuery);
         Task<UserDto> GetUserById(int id);
         Task RegisterUser(RegisterUserDto dto);
-        Task DeleletUser(int userId);
+        Task DeleteUser(int userId);
         Task UpdateUser(int userId, UpdateUserDto dto);
     }
 }

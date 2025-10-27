@@ -111,18 +111,25 @@ namespace PCShop_Backend.Service
             }
             _context.Roles.Remove(existingRole);
             await _context.SaveChangesAsync();
+
+            var key = $"Role_{roleId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
 
-        public async Task UpdateRole(int userId, UpdateRoleDto dto)
+        public async Task UpdateRole(int roleId, UpdateRoleDto dto)
         {
-            var existingRole = await _context.Roles.FirstOrDefaultAsync(r => r.RoleId == userId);
+            var existingRole = await _context.Roles.FirstOrDefaultAsync(r => r.RoleId == roleId);
             if (existingRole == null)
             {
                 throw new Exception("Role not found");
             }
             existingRole.RoleName = dto.RoleName;
             existingRole.Description = dto.Description;
+
             await _context.SaveChangesAsync();
+
+            var key = $"Role_{roleId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
 
         //------------User service----------------
@@ -233,7 +240,7 @@ namespace PCShop_Backend.Service
             Log.Information($"New user registered: {dto.Username}");
         }
 
-        public async Task DeleletUser(int userId)
+        public async Task DeleteUser(int userId)
         {
             var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
             if (existingUser == null)
@@ -242,13 +249,16 @@ namespace PCShop_Backend.Service
             }
             _context.Users.Remove(existingUser);
             await _context.SaveChangesAsync();
+
+            var key = $"User_{userId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
 
         public async Task UpdateUser(int userId, UpdateUserDto dto)
         {
             var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
             if (existingUser == null)
-            {
+            { 
                 throw new Exception("User not found");
             }
             existingUser.FullName = dto.FullName;
@@ -256,7 +266,11 @@ namespace PCShop_Backend.Service
             existingUser.Address = dto.Address;
             existingUser.City = dto.City;
             existingUser.Country = dto.Country;
+
             await _context.SaveChangesAsync();
+
+            var key = $"User_{userId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
     }
 }

@@ -96,7 +96,7 @@ namespace PCShop_Backend.Controllers
         [HttpDelete("users/{userId}")]
         public async Task<IActionResult> DeleteUser(int userId)
         {
-            await _userService.DeleletUser(userId);
+            await _userService.DeleteUser(userId);
             Log.Information($"Deleted user with ID: {userId}");
             return Ok(new { message = "User deleted successfully!" });
         }

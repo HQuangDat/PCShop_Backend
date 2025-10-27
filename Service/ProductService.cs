@@ -182,6 +182,8 @@ namespace PCShop_Backend.Service
             component.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+            var key = $"Component_{id}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
         public async Task deleteComponent(int id)
         {
@@ -207,6 +209,9 @@ namespace PCShop_Backend.Service
             component.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+
+            var key = $"Component_{id}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
 
         // ==================ComponentCategory==================\\
@@ -281,7 +286,7 @@ namespace PCShop_Backend.Service
 
             return categoryDto;
         }
-        public Task updateComponentCategory(int componentId, UpdateComponentCategoryDto updateComponentCategoryDto)
+        public async Task updateComponentCategory(int componentId, UpdateComponentCategoryDto updateComponentCategoryDto)
         {
             var category = _context.ComponentCategories.Find(componentId);
             if (category == null)
@@ -290,7 +295,11 @@ namespace PCShop_Backend.Service
             }
             category.CategoryName = updateComponentCategoryDto.CategoryName;
             category.Description = updateComponentCategoryDto.Description;
-            return _context.SaveChangesAsync();
+
+            var key = $"ComponentCategory_{componentId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
+
+            await _context.SaveChangesAsync();
         }
         public async Task deleteComponentCategory(int categoryId)
         {
@@ -301,6 +310,9 @@ namespace PCShop_Backend.Service
             }
             _context.ComponentCategories.Remove(category);
             await _context.SaveChangesAsync();
+
+            var key = $"ComponentCategory_{categoryId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
 
         // ==================ComponentSpec==================\\
@@ -392,6 +404,9 @@ namespace PCShop_Backend.Service
             spec.SpecValue = updateComponentSpecDto.SpecValue;
             spec.DisplayOrder = updateComponentSpecDto.DisplayOrder;
             await _context.SaveChangesAsync();
+
+            var key = $"ComponentSpec_{specId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
         public async Task deleteComponentSpecs(int specId)
         {
@@ -402,6 +417,9 @@ namespace PCShop_Backend.Service
             }
             _context.ComponentSpecs.Remove(spec);
             await _context.SaveChangesAsync();
+
+            var key = $"ComponentSpec_{specId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
 
         // ==================PC Build==================\\
@@ -624,6 +642,9 @@ namespace PCShop_Backend.Service
             }
 
             await _context.SaveChangesAsync();
+
+            var key = $"PcBuild_{buildId}".GetHashCode().ToString();
+            await _distributedCache.RemoveAsync(key);
         }
         public Task deletePcbuild(int buildId)
         {
@@ -633,6 +654,10 @@ namespace PCShop_Backend.Service
                 throw new NotFoundException($"PC Build with ID {buildId} not found");
             }
             _context.Pcbuilds.Remove(pcBuild);
+
+            var key = $"PcBuild_{buildId}".GetHashCode().ToString();
+            _distributedCache.RemoveAsync(key);
+
             return _context.SaveChangesAsync();
         }
 
