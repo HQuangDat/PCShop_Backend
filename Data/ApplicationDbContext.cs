@@ -33,6 +33,8 @@ namespace PCShop_Backend.Data
 
         public virtual DbSet<User> Users { get; set; }
 
+        public virtual DbSet<PasswordReset> PasswordResets { get; set; } = default!;
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             => optionsBuilder.UseSqlServer("Server=HQD;Database=PCShopDB;Trusted_Connection=true;TrustServerCertificate=true");
 

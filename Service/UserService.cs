@@ -47,7 +47,7 @@ namespace PCShop_Backend.Service
             {
                 RoleId = role.RoleId,
                 RoleName = role.RoleName,
-                Description = role.Description
+                Description = role.Description!
             });
 
             var result = await rolesQuery.GridifyAsync(query);
@@ -83,7 +83,7 @@ namespace PCShop_Backend.Service
             {
                 RoleId = role.RoleId,
                 RoleName = role.RoleName,
-                Description = role.Description
+                Description = role.Description!
             };
 
             await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(roleDto), options);

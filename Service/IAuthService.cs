@@ -8,7 +8,7 @@ namespace PCShop_Backend.Service
     {
         Task Login(LoginDto dto);
         Task Logout();
-        Task ChangePassword(int id,string oldPassword, string newPassword);
         PasswordVerificationResult VerifyHashPassword(User user, string userPassword, string inputPassword);
+        Task ResetPassword(ResetPasswordRequestDto dto);
     }
 }

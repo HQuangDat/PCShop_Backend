@@ -35,5 +35,19 @@ namespace PCShop_Backend.Controllers
             await _authService.Logout();
             return Ok("Logged out successfully");
         }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto dto)
+        {
+            try
+            {
+                await _authService.ResetPassword(dto);
+                return Ok("Password reset successful.");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
     }
 }
