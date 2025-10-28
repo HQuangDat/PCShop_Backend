@@ -20,20 +20,13 @@ namespace PCShop_Backend.Controllers
         {
             try
             {
-                await _authService.Login(dto);
-                return Ok("Login successful");
+                var token = await _authService.Login(dto);
+                return Ok(new { token });
             }
             catch (Exception ex)
             {
                 return BadRequest(ex.Message);
             }
-        }
-
-        [HttpPost("logout")]
-        public async Task<IActionResult> Logout()
-        {
-            await _authService.Logout();
-            return Ok("Logged out successfully");
         }
 
         [HttpPost("reset-password")]

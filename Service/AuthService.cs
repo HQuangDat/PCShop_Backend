@@ -1,14 +1,15 @@
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using PCShop_Backend.Data;
 using PCShop_Backend.Dtos.AuthDtos;
 using PCShop_Backend.Models;
 using Serilog;
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Mail;
 using System.Security.Claims;
+using System.Text;
 
 namespace PCShop_Backend.Service
 {
@@ -16,18 +17,19 @@ namespace PCShop_Backend.Service
     {
         private readonly ApplicationDbContext _context;
         private readonly IPasswordHasher<User> _passwordHasher;
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IConfiguration _configuration;
 
-        public AuthService(ApplicationDbContext context, IPasswordHasher<User> passwordHasher, IHttpContextAccessor httpContextAccessor)
+        public AuthService(ApplicationDbContext context, IPasswordHasher<User> passwordHasher, IConfiguration configuration)
         {
             _context = context;
             _passwordHasher = passwordHasher;
-            _httpContextAccessor = httpContextAccessor;
+            _configuration = configuration;
         }
 
-        public async Task Login(LoginDto dto)
+        public async Task<string> Login(LoginDto dto)
         {
             var existUser = await _context.Users
+                .Include(u => u.Role)
                 .FirstOrDefaultAsync(u => u.Username == dto.username);
             if (existUser == null)
             {
@@ -43,30 +45,28 @@ namespace PCShop_Backend.Service
                         new Claim(ClaimTypes.NameIdentifier, existUser.UserId.ToString())
                     };
 
-                var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-                var authProperties = new AuthenticationProperties
-                {
-                    IsPersistent = true,
-                    ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(30)
-                };
+                var jwtKey = _configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not found in configuration.");
+                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+                var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+                var expires = DateTime.UtcNow.AddDays(1);
 
-                await _httpContextAccessor.HttpContext!.SignInAsync(
-                    CookieAuthenticationDefaults.AuthenticationScheme,
-                    new ClaimsPrincipal(claimsIdentity),
-                    authProperties);
+                var token = new JwtSecurityToken(
+                    issuer: _configuration["Jwt:Issuer"],
+                    audience: _configuration["Jwt:Audience"],
+                    claims: claims,
+                    expires: expires,
+                    signingCredentials: creds
+                );
+
+                var tokenHandler = new JwtSecurityTokenHandler();
                 Log.Information("User {Username} logged in successfully.", dto.username);
+                return tokenHandler.WriteToken(token);
             }
             else
             {
                 Log.Error("Invalid password for user: {Username}.", dto.username);
                 throw new Exception("Invalid password");
             }
-        }
-
-        public async Task Logout()
-        {
-            await _httpContextAccessor.HttpContext!.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            Log.Information("User logged out successfully.");
         }
 
         public PasswordVerificationResult VerifyHashPassword(User user, string userPassword, string inputPassword)

@@ -1,11 +1,12 @@
-
-using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using PCShop_Backend.Data;
 using PCShop_Backend.Models;
 using PCShop_Backend.Service;
 using Serilog;
+using System.Text;
 
 namespace PCShop_Backend
 {
@@ -41,22 +42,25 @@ namespace PCShop_Backend
                     redisOptions.Configuration = builder.Configuration.GetConnectionString("Redis")
                 );
 
-                // Authentication and Authorization can be configured here
+                var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not found in configuration.");
                 builder.Services.AddAuthentication(options =>
                 {
-                    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-                    //options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+                    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
                 })
-                    //.AddGoogle(options =>
-                    //{
-                    //    options.ClientId = builder.Configuration.GetSection("GoogleKey:ClientId").Value;
-                    //    options.ClientSecret = builder.Configuration.GetSection("GoogleKey:ClientSecret").Value;
-                    //})
-                    .AddCookie(options =>
+                .AddJwtBearer(options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
                     {
-                        options.LoginPath = "/Auth/Login";
-                        options.LogoutPath = "/Auth/Logout";
-                    });
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+                        ValidAudience = builder.Configuration["Jwt:Audience"],
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+                    };
+                });
 
                 builder.Services.AddAuthorization(options =>
                 {

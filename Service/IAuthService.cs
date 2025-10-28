@@ -6,8 +6,7 @@ namespace PCShop_Backend.Service
 {
     public interface IAuthService
     {
-        Task Login(LoginDto dto);
-        Task Logout();
+        Task<string> Login(LoginDto dto);
         PasswordVerificationResult VerifyHashPassword(User user, string userPassword, string inputPassword);
         Task ResetPassword(ResetPasswordRequestDto dto);
     }
