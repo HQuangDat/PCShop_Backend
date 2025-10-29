@@ -36,6 +36,7 @@ namespace PCShop_Backend
                 builder.Services.AddScoped<IOrderService, OrderService>();
                 builder.Services.AddScoped<ISupportService, SupportService>();
                 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+                builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
                 builder.Services.AddHttpContextAccessor();
 
                 builder.Services.AddStackExchangeRedisCache(redisOptions =>

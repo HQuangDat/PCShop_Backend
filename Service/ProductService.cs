@@ -11,6 +11,7 @@ using PCShop_Backend.Data;
 using PCShop_Backend.Dtos;
 using PCShop_Backend.Dtos.ProductDtos.CreateDto;
 using PCShop_Backend.Dtos.ProductDtos.UpdateDto;
+using PCShop_Backend.Exceptions;
 using PCShop_Backend.Models;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
@@ -71,7 +72,7 @@ namespace PCShop_Backend.Service
 
             if (componentsQuery == null)
             {
-                throw new NotFoundException("No components found");
+                throw new Exceptions.NotFoundException("No components found");
             }
 
             //cached that data
@@ -119,7 +120,7 @@ namespace PCShop_Backend.Service
 
             if (component == null)
             {
-                throw new NotFoundException($"Component with ID {id} not found");
+                throw new Exceptions.NotFoundException($"Component with ID {id} not found");
             }
 
             var componentDto = new ComponentDto
@@ -150,7 +151,7 @@ namespace PCShop_Backend.Service
 
             if (component == null)
             {
-                throw new NotFoundException($"Component with ID {id} not found");
+                throw new Exceptions.NotFoundException($"Component with ID {id} not found");
             }
 
             if (updateComponentDto.Price <= 0)
@@ -189,7 +190,7 @@ namespace PCShop_Backend.Service
         {
             var component =  await _context.Components.FindAsync(id);
             if (component == null)
-                throw new NotFoundException($"Component with ID {id} not found");
+                throw new Exceptions.NotFoundException($"Component with ID {id} not found");
             
             var isInUsePcBuild = await _context.PcbuildComponents
                 .AnyAsync(pc => pc.ComponentId == id);
@@ -202,7 +203,7 @@ namespace PCShop_Backend.Service
 
             if(isInUsePcBuild || isUsedInActiveReceipts)
             {
-                throw new Exception($"Cannot delete component with ID {id} because it is in use.");
+                throw new ConflictException($"Cannot delete component with ID {id} because it is in use.");
             }
 
             component.IsActive = false;
@@ -272,7 +273,7 @@ namespace PCShop_Backend.Service
             var category = await _context.ComponentCategories.FindAsync(categoryId);
             if (category == null)
             {
-                throw new NotFoundException($"Category with ID {categoryId} not found");
+                throw new Exceptions.NotFoundException($"Category with ID {categoryId} not found");
             }
 
             var categoryDto = new ComponentCategoriesDto
@@ -291,7 +292,7 @@ namespace PCShop_Backend.Service
             var category = _context.ComponentCategories.Find(componentId);
             if (category == null)
             {
-                throw new NotFoundException($"Component with ID {componentId} not found");
+                throw new Exceptions.NotFoundException($"Component with ID {componentId} not found");
             }
             category.CategoryName = updateComponentCategoryDto.CategoryName;
             category.Description = updateComponentCategoryDto.Description;
@@ -306,7 +307,7 @@ namespace PCShop_Backend.Service
             var category = await _context.ComponentCategories.FindAsync(categoryId);
             if (category == null)
             {
-                throw new NotFoundException($"Category with ID {categoryId} not found");
+                throw new Exceptions.NotFoundException($"Category with ID {categoryId} not found");
             }
             _context.ComponentCategories.Remove(category);
             await _context.SaveChangesAsync();
@@ -377,7 +378,7 @@ namespace PCShop_Backend.Service
             var spec = await _context.ComponentSpecs.FindAsync(specId);
             if(spec == null)
             {
-                throw new NotFoundException($"Component Spec with ID {specId} not found");
+                throw new Exceptions.NotFoundException($"Component Spec with ID {specId} not found");
             }
 
             var specDto = new ComponentSpecsDto
@@ -398,7 +399,7 @@ namespace PCShop_Backend.Service
             var spec = await _context.ComponentSpecs.FindAsync(specId);
             if (spec == null)
             {
-                throw new NotFoundException($"Component Spec with ID {specId} not found");
+                throw new Exceptions.NotFoundException($"Component Spec with ID {specId} not found");
             }
             spec.SpecKey = updateComponentSpecDto.SpecKey;
             spec.SpecValue = updateComponentSpecDto.SpecValue;
@@ -413,7 +414,7 @@ namespace PCShop_Backend.Service
             var spec = _context.ComponentSpecs.Find(specId);
             if (spec == null)
             {
-                throw new NotFoundException($"Component Spec with ID {specId} not found");
+                throw new Exceptions.NotFoundException($"Component Spec with ID {specId} not found");
             }
             _context.ComponentSpecs.Remove(spec);
             await _context.SaveChangesAsync();
@@ -498,7 +499,7 @@ namespace PCShop_Backend.Service
                 .FirstOrDefaultAsync(b => b.BuildId == buildId);
 
             if (build == null)
-                throw new NotFoundException($"Build {buildId} not found");
+                throw new Exceptions.NotFoundException($"Build {buildId} not found");
 
             var components = build.PcbuildComponents.Select(bc => new PcBuildComponentDto
             {
@@ -589,7 +590,7 @@ namespace PCShop_Backend.Service
                 .FirstOrDefaultAsync(b => b.BuildId == buildId);
 
             if (build == null)
-                throw new NotFoundException($"PC Build with ID {buildId} not found");
+                throw new Exceptions.NotFoundException($"PC Build with ID {buildId} not found");
 
             build.BuildName = dto.BuildName;
             build.Description = dto.Description;
@@ -651,7 +652,7 @@ namespace PCShop_Backend.Service
             var pcBuild = _context.Pcbuilds.Find(buildId);
             if (pcBuild == null)
             {
-                throw new NotFoundException($"PC Build with ID {buildId} not found");
+                throw new Exceptions.NotFoundException($"PC Build with ID {buildId} not found");
             }
             _context.Pcbuilds.Remove(pcBuild);
 

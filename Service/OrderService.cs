@@ -8,6 +8,7 @@ using PCShop_Backend.Dtos;
 using PCShop_Backend.Dtos.OrderDtos;
 using PCShop_Backend.Dtos.OrderDtos.CreateDtos;
 using PCShop_Backend.Dtos.OrderDtos.UpdateDtos;
+using PCShop_Backend.Exceptions;
 using PCShop_Backend.Models;
 using Serilog;
 using System.Security.Claims;
@@ -73,7 +74,7 @@ namespace PCShop_Backend.Service
             // Check stock availability
             if (component!.StockQuantity < dto.Quantity)
             {
-                throw new Exception("Not enough stock for the requested component.");
+                throw new OutOfStockException("Not enough stock for the requested component.");
             }
 
             var addItem = new CartItem
@@ -96,7 +97,7 @@ namespace PCShop_Backend.Service
             var existingCartItem = await _context.CartItems.FirstOrDefaultAsync(ci => ci.CartItemId == cartItemId && ci.UserId == userId);
             if(existingCartItem == null)
             {
-                throw new Exception("Cart item not found for the user.");
+                throw new NotFoundException("Cart item not found for the user.");
             }
             existingCartItem.Quantity = dto.Quantity;
             await _context.SaveChangesAsync();
@@ -108,7 +109,7 @@ namespace PCShop_Backend.Service
             var existingCartItem = await _context.CartItems.FirstOrDefaultAsync(ci => ci.CartItemId == cartItemId);
             if (existingCartItem == null)
             {
-                throw new Exception("Cart item not found.");
+                throw new NotFoundException("Cart item not found.");
             }
             _context.CartItems.Remove(existingCartItem);
             Log.Information($"Cart item with id: {existingCartItem.CartItemId} has been removed from cart");
@@ -203,7 +204,7 @@ namespace PCShop_Backend.Service
                 .FirstOrDefaultAsync();
             if(existingReceipt == null)
             {
-                throw new Exception("Receipt not found for the user.");
+                throw new NotFoundException("Receipt not found for the user.");
             }
 
             await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(existingReceipt), options);
@@ -236,7 +237,7 @@ namespace PCShop_Backend.Service
             var existingReceipt =  _context.Receipts.FirstOrDefault(r => r.ReceiptId == receiptId && r.UserId == userId);
             if(existingReceipt == null)
             {
-                throw new Exception("Receipt not found for the user.");
+                throw new NotFoundException("Receipt not found for the user.");
             }
             existingReceipt.TotalAmount = dto.TotalAmount;
             existingReceipt.Status = dto.Status;
@@ -254,7 +255,7 @@ namespace PCShop_Backend.Service
             var existingReceipt = await _context.Receipts.FirstOrDefaultAsync(r => r.ReceiptId == receiptId && r.UserId == userId);
             if (existingReceipt == null)
             {
-                throw new Exception("Receipt not found for the user.");
+                throw new NotFoundException("Receipt not found for the user.");
             }
             _context.Receipts.Remove(existingReceipt);
             Log.Information($"User with id: {userId} has deleted receipt: {existingReceipt.ReceiptId}");
@@ -329,7 +330,7 @@ namespace PCShop_Backend.Service
                 .FirstOrDefaultAsync();
             if (existingReceiptItem == null)
             {
-                throw new Exception("Receipt item not found.");
+                throw new NotFoundException("Receipt item not found.");
             }
 
             await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(existingReceiptItem), options);
@@ -358,7 +359,7 @@ namespace PCShop_Backend.Service
             var existingReceiptItem = await _context.ReceiptItems.FirstOrDefaultAsync(ri => ri.ReceiptItemId == receiptItemId);
             if (existingReceiptItem == null)
             {
-                throw new Exception("Receipt item not found.");
+                throw new NotFoundException("Receipt item not found.");
             }
             existingReceiptItem.ReceiptId = dto.ReceiptId;
             existingReceiptItem.ComponentId = dto.ComponentId;
@@ -377,7 +378,7 @@ namespace PCShop_Backend.Service
             var existingReceiptItem = await _context.ReceiptItems.FirstOrDefaultAsync(ri => ri.ReceiptItemId == receiptItemId);
             if (existingReceiptItem == null)
             {
-                throw new Exception("Receipt item not found.");
+                throw new NotFoundException("Receipt item not found.");
             }
             _context.ReceiptItems.Remove(existingReceiptItem);
             Log.Information($"Receipt item with id: {existingReceiptItem.ReceiptItemId} has been deleted");

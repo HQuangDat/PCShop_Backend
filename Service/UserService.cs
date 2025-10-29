@@ -8,6 +8,7 @@ using PCShop_Backend.Data;
 using PCShop_Backend.Dtos.UserDtos;
 using PCShop_Backend.Dtos.UserDtos.CreateDto;
 using PCShop_Backend.Dtos.UserDtos.UpdateDto;
+using PCShop_Backend.Exceptions;
 using PCShop_Backend.Models;
 using Serilog;
 
@@ -76,7 +77,7 @@ namespace PCShop_Backend.Service
             var role = await _context.Roles.FindAsync(roleId);
             if(role == null)
             {
-                throw new Exception("Role not found");
+                throw new NotFoundException("Role not found");
             }
 
             var roleDto = new RoleDto
@@ -107,7 +108,7 @@ namespace PCShop_Backend.Service
             var existingRole = await _context.Roles.FirstOrDefaultAsync(r => r.RoleId == roleId);
             if (existingRole == null)
             {
-                throw new Exception("Role not found");
+                throw new NotFoundException("Role not found");
             }
             _context.Roles.Remove(existingRole);
             await _context.SaveChangesAsync();
@@ -121,7 +122,7 @@ namespace PCShop_Backend.Service
             var existingRole = await _context.Roles.FirstOrDefaultAsync(r => r.RoleId == roleId);
             if (existingRole == null)
             {
-                throw new Exception("Role not found");
+                throw new NotFoundException("Role not found");
             }
             existingRole.RoleName = dto.RoleName;
             existingRole.Description = dto.Description;
@@ -210,7 +211,7 @@ namespace PCShop_Backend.Service
 
             if (existingUser == null)
             {
-                throw new Exception("User not found");
+                throw new NotFoundException("User not found");
             }
 
             await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(existingUser), options);
@@ -245,7 +246,7 @@ namespace PCShop_Backend.Service
             var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
             if (existingUser == null)
             {
-                throw new Exception("User not found");
+                throw new NotFoundException("User not found");
             }
             _context.Users.Remove(existingUser);
             await _context.SaveChangesAsync();
@@ -259,7 +260,7 @@ namespace PCShop_Backend.Service
             var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
             if (existingUser == null)
             { 
-                throw new Exception("User not found");
+                throw new NotFoundException("User not found");
             }
             existingUser.FullName = dto.FullName;
             existingUser.PhoneNumber = dto.PhoneNumber;
