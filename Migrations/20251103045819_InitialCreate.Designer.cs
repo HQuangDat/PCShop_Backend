@@ -12,8 +12,8 @@ using PCShop_Backend.Data;
 namespace PCShop_Backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251028025835_InitialMigration")]
-    partial class InitialMigration
+    [Migration("20251103045819_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -185,6 +185,30 @@ namespace PCShop_Backend.Migrations
                         .IsUnique();
 
                     b.ToTable("ComponentSpecs");
+                });
+
+            modelBuilder.Entity("PCShop_Backend.Models.PasswordReset", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ExpireDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PasswordResets");
                 });
 
             modelBuilder.Entity("PCShop_Backend.Models.Pcbuild", b =>

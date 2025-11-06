@@ -184,6 +184,30 @@ namespace PCShop_Backend.Migrations
                     b.ToTable("ComponentSpecs");
                 });
 
+            modelBuilder.Entity("PCShop_Backend.Models.PasswordReset", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ExpireDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PasswordResets");
+                });
+
             modelBuilder.Entity("PCShop_Backend.Models.Pcbuild", b =>
                 {
                     b.Property<int>("BuildId")

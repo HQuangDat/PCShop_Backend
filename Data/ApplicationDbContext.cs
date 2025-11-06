@@ -36,7 +36,7 @@ namespace PCShop_Backend.Data
         public virtual DbSet<PasswordReset> PasswordResets { get; set; } = default!;
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            => optionsBuilder.UseSqlServer("Server=HQD;Database=PCShopDB;Trusted_Connection=true;TrustServerCertificate=true");
+            => optionsBuilder.UseSqlServer("Server=LAPTOP-MIIGCG1P;Database=PCShop;Trusted_Connection=True;TrustServerCertificate=True;");
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace PCShop_Backend.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialMigration : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -23,6 +23,21 @@ namespace PCShop_Backend.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK__Componen__19093A0B5E829719", x => x.CategoryId);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PasswordResets",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Email = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Token = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ExpireDate = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PasswordResets", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -484,6 +499,9 @@ namespace PCShop_Backend.Migrations
 
             migrationBuilder.DropTable(
                 name: "ComponentSpecs");
+
+            migrationBuilder.DropTable(
+                name: "PasswordResets");
 
             migrationBuilder.DropTable(
                 name: "PCBuildComponents");
