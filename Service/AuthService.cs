@@ -7,8 +7,10 @@ using PCShop_Backend.Exceptions;
 using PCShop_Backend.Models;
 using Serilog;
 using System.IdentityModel.Tokens.Jwt;
+using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using System.Text;
+using Hangfire;
 
 namespace PCShop_Backend.Service
 {
@@ -18,13 +20,17 @@ namespace PCShop_Backend.Service
         private readonly IPasswordHasher<User> _passwordHasher;
         private readonly IConfiguration _configuration;
         private readonly IJwtTokenService _jwtTokenService;
+        private readonly IEmailService _emailService;
+        private readonly IBackgroundJobClient _backgroundJobClient;
 
-        public AuthService(ApplicationDbContext context, IPasswordHasher<User> passwordHasher, IConfiguration configuration, IJwtTokenService jwtTokenService)
+        public AuthService(ApplicationDbContext context, IPasswordHasher<User> passwordHasher, IConfiguration configuration, IJwtTokenService jwtTokenService, IEmailService emailService, IBackgroundJobClient backgroundJobClient)
         {
             _context = context;
             _passwordHasher = passwordHasher;
             _configuration = configuration;
             _jwtTokenService = jwtTokenService;
+            _emailService = emailService;
+            _backgroundJobClient = backgroundJobClient;
         }
 
         public async Task<string> Login(LoginDto dto)
@@ -56,6 +62,50 @@ namespace PCShop_Backend.Service
         }
 
         //Reset password section
+        public async Task GenerateResetPasswordToken(string email)
+        {
+            var existEmail = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == email);
+            if (existEmail == null)
+            {
+                Log.Error("Email: {Email} not found for password reset.", email);
+                throw new NotFoundException($"Email {email} not found");
+            }
+
+            var existingReset = await _context.PasswordResets
+                .FirstOrDefaultAsync(pr => pr.Email == email);
+
+            // Check for existing valid token
+            if (existingReset != null)
+            {
+                if(existingReset.ExpireDate > DateTime.UtcNow)
+                {
+                    Log.Error("A valid reset token already exists for email: {Email}", email);
+                    throw new InvalidTokenException("A valid reset token already exists. Please check your email.");
+                }
+                else if(existingReset.ExpireDate <= DateTime.UtcNow)
+                {
+                    // Remove expired token
+                    _context.PasswordResets.Remove(existingReset);
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+
+            // generate a reset token
+            var token = Guid.NewGuid().ToString();
+            await _context.PasswordResets.AddAsync(new PasswordReset
+            {
+                Email = email,
+                Token = token,
+                ExpireDate = DateTime.UtcNow.AddMinutes(30) // Token valid for 30 minutes
+            });
+
+            await _context.SaveChangesAsync();
+
+            _backgroundJobClient.Enqueue(() => _emailService.SendEmailAsync(email, "Password Reset", $"Your password reset token is: {token}"));
+        }
+
 
         public async Task ResetPassword(ResetPasswordRequestDto dto)
         {

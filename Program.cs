@@ -8,6 +8,8 @@ using PCShop_Backend.Service;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using System.Text;
+using Hangfire;
+using Hangfire.SqlServer;
 
 Log.Logger = new LoggerConfiguration()
         .WriteTo.Console()
@@ -57,6 +59,7 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<ISupportService, SupportService>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddStackExchangeRedisCache(redisOptions =>
@@ -90,6 +93,20 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Staff", policy => policy.RequireRole("Staff"));
 });
 
+builder.Services.AddHangfire(configuration => configuration
+        .SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
+        .UseSimpleAssemblyNameTypeSerializer()
+        .UseRecommendedSerializerSettings()
+        .UseSqlServerStorage(builder.Configuration.GetConnectionString("DefaultConnection"), new SqlServerStorageOptions
+        {
+            CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
+            SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
+            QueuePollInterval = TimeSpan.Zero,
+            UseRecommendedIsolationLevel = true,
+            DisableGlobalLocks = true
+        }));
+builder.Services.AddHangfireServer();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -103,6 +120,8 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseHangfireDashboard();
 
 
 app.MapControllers();

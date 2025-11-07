@@ -8,6 +8,7 @@ namespace PCShop_Backend.Service
     {
         Task<string> Login(LoginDto dto);
         PasswordVerificationResult VerifyHashPassword(User user, string userPassword, string inputPassword);
+        Task GenerateResetPasswordToken(string email);
         Task ResetPassword(ResetPasswordRequestDto dto);
     }
 }
