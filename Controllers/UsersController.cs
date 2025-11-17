@@ -1,4 +1,5 @@
 using Gridify;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using PCShop_Backend.Dtos.UserDtos.CreateDto;
@@ -22,6 +23,7 @@ namespace PCShop_Backend.Controllers
 
         //------------Role Endpoint----------------
         [HttpGet("roles")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> RoleList([FromQuery] GridifyQuery query)
         {
             var roles = await _userService.getRoles(query);
@@ -30,6 +32,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpGet("roles/{roleId}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetRoleById(int roleId)
         {
             var role = await _userService.getRoleById(roleId);
@@ -38,6 +41,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpPost("roles/create")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateRole(CreateRoleDto dto)
         {
             await _userService.CreateRole(dto);
@@ -46,6 +50,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpPut("roles/{roleId}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateRole(int roleId, UpdateRoleDto dto)
         {
             await _userService.UpdateRole(roleId, dto);
@@ -54,6 +59,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpDelete("roles/{roleId}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteRole(int roleId)
         {
             await _userService.DeleteRole(roleId);
@@ -63,6 +69,7 @@ namespace PCShop_Backend.Controllers
 
         //------------User Endpoint----------------
         [HttpGet("users")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UserList([FromQuery] GridifyQuery query)
         {
             var users = await _userService.getUsers(query);
@@ -71,6 +78,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpGet("users/{userId}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetUserById(int userId)
         {
             var user = await _userService.GetUserById(userId);
@@ -86,6 +94,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpPut("users/{userId}")]
+        [Authorize]
         public async Task<IActionResult> UpdateUser(int userId, UpdateUserDto dto)
         {
             await _userService.UpdateUser(userId, dto);
@@ -94,6 +103,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpDelete("users/{userId}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteUser(int userId)
         {
             await _userService.DeleteUser(userId);
