@@ -5,6 +5,8 @@ using Microsoft.IdentityModel.Tokens;
 using PCShop_Backend.Data;
 using PCShop_Backend.Models;
 using PCShop_Backend.Service;
+using PCShop_Backend.Middleware;
+using PCShop_Backend.Filters;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using System.Text;
@@ -19,7 +21,10 @@ Log.Information("Starting up the service...");
 var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<AuthorizationExceptionFilter>();
+});
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 
@@ -120,6 +125,8 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 
 app.UseHangfireDashboard();
 
