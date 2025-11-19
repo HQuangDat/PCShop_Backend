@@ -52,7 +52,7 @@ namespace PCShop_Backend.Service
             else
             {
                 Log.Error("Invalid password for user: {Username}.", dto.username);
-                throw new InvalidCredentialsException("Invalid password");
+                throw new ArgumentException("Invalid password");
             }
         }
 
@@ -81,7 +81,7 @@ namespace PCShop_Backend.Service
                 if(existingReset.ExpireDate > DateTime.UtcNow)
                 {
                     Log.Error("A valid reset token already exists for email: {Email}", email);
-                    throw new InvalidTokenException("A valid reset token already exists. Please check your email.");
+                    throw new ArgumentException("A valid reset token already exists. Please check your email.");
                 }
                 else if(existingReset.ExpireDate <= DateTime.UtcNow)
                 {
@@ -116,7 +116,7 @@ namespace PCShop_Backend.Service
             if (passwordReset == null)
             {
                 Log.Error("Invalid password reset token.");
-                throw new InvalidTokenException("Invalid or expired reset token.");
+                throw new ArgumentException("Invalid or expired reset token.");
             }
 
             // Check if token is expired
@@ -125,7 +125,7 @@ namespace PCShop_Backend.Service
                 Log.Error("Password reset token has expired for email: {Email}", passwordReset.Email);
                 _context.PasswordResets.Remove(passwordReset);
                 await _context.SaveChangesAsync();
-                throw new InvalidTokenException("Reset token has expired. Please request a new password reset.");
+                throw new ArgumentException("Reset token has expired. Please request a new password reset.");
             }
 
             // Find the user by email

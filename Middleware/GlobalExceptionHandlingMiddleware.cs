@@ -30,86 +30,36 @@ namespace PCShop_Backend.Middleware
         {
             context.Response.ContentType = "application/json";
 
-            var response = new
+            // Map exception to HTTP status and response
+            var (statusCode, message) = GetStatusAndMessage(exception);
+            context.Response.StatusCode = statusCode;
+
+            var response = new { message, statusCode };
+
+            // Log appropriately based on exception type
+            if (statusCode >= 500)
             {
-                message = exception.Message,
-                statusCode = context.Response.StatusCode
-            };
-
-            switch (exception)
+                Log.Error(exception, "Unhandled exception: {Message}", exception.Message);
+            }
+            else
             {
-                case UnauthorizedException:
-                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                    response = new
-                    {
-                        message = exception.Message,
-                        statusCode = StatusCodes.Status403Forbidden
-                    };
-                    Log.Warning("Authorization failed: {Message}", exception.Message);
-                    break;
-
-                case InvalidCredentialsException:
-                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                    response = new
-                    {
-                        message = exception.Message,
-                        statusCode = StatusCodes.Status401Unauthorized
-                    };
-                    Log.Warning("Authentication failed: {Message}", exception.Message);
-                    break;
-
-                case InvalidTokenException:
-                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                    response = new
-                    {
-                        message = exception.Message,
-                        statusCode = StatusCodes.Status401Unauthorized
-                    };
-                    Log.Warning("Invalid token: {Message}", exception.Message);
-                    break;
-
-                case NotFoundException:
-                    context.Response.StatusCode = StatusCodes.Status404NotFound;
-                    response = new
-                    {
-                        message = exception.Message,
-                        statusCode = StatusCodes.Status404NotFound
-                    };
-                    Log.Warning("Resource not found: {Message}", exception.Message);
-                    break;
-
-                case ConflictException:
-                    context.Response.StatusCode = StatusCodes.Status409Conflict;
-                    response = new
-                    {
-                        message = exception.Message,
-                        statusCode = StatusCodes.Status409Conflict
-                    };
-                    Log.Warning("Conflict occurred: {Message}", exception.Message);
-                    break;
-
-                case ArgumentException:
-                    context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                    response = new
-                    {
-                        message = "Invalid argument: " + exception.Message,
-                        statusCode = StatusCodes.Status400BadRequest
-                    };
-                    Log.Warning("Invalid argument: {Message}", exception.Message);
-                    break;
-
-                default:
-                    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-                    response = new
-                    {
-                        message = "An unexpected error occurred. Please try again later.",
-                        statusCode = StatusCodes.Status500InternalServerError
-                    };
-                    Log.Error(exception, "Unhandled exception: {Message}", exception.Message);
-                    break;
+                Log.Warning("{ExceptionType}: {Message}", exception.GetType().Name, exception.Message);
             }
 
             return context.Response.WriteAsJsonAsync(response);
+        }
+
+        private static (int StatusCode, string Message) GetStatusAndMessage(Exception exception)
+        {
+            return exception switch
+            {
+                ArgumentException => (StatusCodes.Status400BadRequest, exception.Message),
+                UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Authentication required. Please provide a valid JWT token."),
+                UnauthorizedException => (StatusCodes.Status403Forbidden, exception.Message),
+                NotFoundException => (StatusCodes.Status404NotFound, exception.Message),
+                ConflictException => (StatusCodes.Status409Conflict, exception.Message),
+                _ => (StatusCodes.Status500InternalServerError, "An unexpected error occurred. Please try again later.")
+            };
         }
     }
 }

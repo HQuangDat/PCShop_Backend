@@ -6,7 +6,6 @@ using PCShop_Backend.Data;
 using PCShop_Backend.Models;
 using PCShop_Backend.Service;
 using PCShop_Backend.Middleware;
-using PCShop_Backend.Filters;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using Serilog.Events;
@@ -40,10 +39,7 @@ try
     builder.Host.UseSerilog();
 
     // Add services to the container.
-    builder.Services.AddControllers(options =>
-    {
-        options.Filters.Add<AuthorizationExceptionFilter>();
-    });
+    builder.Services.AddControllers();
 
     builder.Services.AddEndpointsApiExplorer();
 
