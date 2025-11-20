@@ -7,16 +7,6 @@ namespace PCShop_Backend.Service
 {
     public interface IOrderService
     {
-
-        // Cart Items
-        Task<Paging<CartItemsDtos>> getCartItems(GridifyQuery query);
-
-        Task AddToCart(AddItemToCartDtos dto);
-        Task UpdateCartItems(int cartId,UpdateCartItemsDto dto);
-        Task RemoveFromCart(int cartItemId);
-
-        Task ClearCart();
-
         //Receipts Section
         Task<Paging<ReceiptDtos>> getReceipts(GridifyQuery query);
         Task<ReceiptDtos> getReceiptById(int receiptId);

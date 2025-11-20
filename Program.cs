@@ -76,6 +76,7 @@ try
     builder.Services.AddScoped<IProductService, ProductService>();
     builder.Services.AddScoped<IUserService, UserService>();
     builder.Services.AddScoped<IAuthService, AuthService>();
+    builder.Services.AddScoped<ICartService, CartService>();
     builder.Services.AddScoped<IOrderService, OrderService>();
     builder.Services.AddScoped<ISupportService, SupportService>();
     builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();

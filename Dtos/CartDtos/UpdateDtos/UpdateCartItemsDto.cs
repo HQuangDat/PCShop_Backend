@@ -1,4 +1,4 @@
-﻿namespace PCShop_Backend.Dtos.OrderDtos.UpdateDtos
+﻿namespace PCShop_Backend.Dtos.CartDtos.UpdateDtos
 {
     public class UpdateCartItemsDto
     {

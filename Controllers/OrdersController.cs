@@ -20,42 +20,6 @@ namespace PCShop_Backend.Controllers
             _orderService = orderService;
         }
 
-        //============Cart Items
-        [HttpGet("cart-items")]
-        public async Task<IActionResult> GetCartItems([FromQuery] GridifyQuery query)
-        {
-            var result = await _orderService.getCartItems(query);
-            return Ok(result);
-        }
-
-        [HttpPost("cart-items")]
-        public async Task<IActionResult> AddToCart([FromBody] AddItemToCartDtos dto)
-        {
-            await _orderService.AddToCart(dto);
-            return Ok(new { message = "Added item to cart." });
-        }
-
-        [HttpPut("cart-items/{cartId}")]
-        public async Task<IActionResult> UpdateCartItems(int cartId, [FromBody] UpdateCartItemsDto dto)
-        {
-            await _orderService.UpdateCartItems(cartId, dto);
-            return Ok(new { message = "Updated cart item." });
-        }
-
-        [HttpDelete("cart-items/{cartItemId}")]
-        public async Task<IActionResult> RemoveFromCart(int cartItemId)
-        {
-            await _orderService.RemoveFromCart(cartItemId);
-            return Ok(new { message = "Removed item from cart." });
-        }
-
-        [HttpDelete("cart-items/clear")]
-        public async Task<IActionResult> ClearCart()
-        {
-            await _orderService.ClearCart();
-            return Ok(new { message = "Cleared all items from cart." });
-        }
-
         //=================Receipts Section
         [HttpGet("receipts")]
         public async Task<IActionResult> GetReceipts([FromQuery] GridifyQuery query)

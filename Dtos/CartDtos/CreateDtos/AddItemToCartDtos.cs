@@ -1,4 +1,4 @@
-﻿namespace PCShop_Backend.Dtos.OrderDtos.CreateDtos
+﻿namespace PCShop_Backend.Dtos.CartDtos.CreateDtos
 {
     public class AddItemToCartDtos
     {

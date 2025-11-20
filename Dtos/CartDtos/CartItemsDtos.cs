@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 
-namespace PCShop_Backend.Dtos.OrderDtos
+namespace PCShop_Backend.Dtos.CartDtos
 {
     public class CartItemsDtos
     {
