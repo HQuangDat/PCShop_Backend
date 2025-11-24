@@ -1,5 +1,6 @@
 using Gridify;
 using Gridify.EntityFramework;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using Newtonsoft.Json;
@@ -389,6 +390,34 @@ namespace PCShop_Backend.Service
 
             var key = $"ReceiptItem_{receiptItemId}".GetHashCode().ToString();
             await _distributedCache.RemoveAsync(key);
+        }
+
+        // ========== Sales Statistics ==========
+        public async Task<List<SalesStatisticDto>> GetSalesStatistics(DateOnly startDate, DateOnly endDate)
+        {
+            var startDateTime = startDate.ToDateTime(TimeOnly.MinValue);
+            var endDateTime = endDate.ToDateTime(TimeOnly.MaxValue);
+
+            var salesStats = await _context.ReceiptItems
+                .Where(ri => ri.Receipt.CreatedAt >= startDateTime && ri.Receipt.CreatedAt <= endDateTime)
+                .Where(ri => ri.ComponentId.HasValue)
+                .GroupBy(ri => new { ri.ComponentId, ri.Component.Name }) 
+                .Select(g => new SalesStatisticDto
+                {
+                    ProductId = g.Key.ComponentId.Value,
+                    ProductName = g.Key.Name ?? "Unknown",
+                    TotalQuantitySold = g.Sum(ri => ri.Quantity),
+                    TotalRevenue = g.Sum(ri => ri.Quantity * ri.UnitPrice),
+                    Date = null 
+                })
+                .ToListAsync();
+
+            if (!salesStats.Any())
+            {
+                Log.Information("No receipts found in the given date range.");
+                throw new NotFoundException("No receipts found in the given date range.");
+            }
+            return salesStats;
         }
     }
 }

@@ -20,5 +20,8 @@ namespace PCShop_Backend.Service
         Task CreateReceiptItem(CreateReceiptItemDto dto);
         Task UpdateReceiptItem(int receiptItemId, UpdateReceiptItemDto dto);
         Task DeleteReceiptItem(int receiptItemId);
+
+        // Sales Statistics
+        Task<List<SalesStatisticDto>> GetSalesStatistics(DateOnly startDate, DateOnly endDate);
     }
 }

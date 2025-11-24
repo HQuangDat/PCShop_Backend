@@ -91,5 +91,14 @@ namespace PCShop_Backend.Controllers
             await _orderService.DeleteReceiptItem(receiptItemId);
             return Ok(new { message = "Deleted receipt item." });
         }
+
+        //===================== Sales Statistics
+        [HttpGet("sales-statistics")]
+        public async Task<IActionResult> GetSalesStatistics([FromQuery] DateOnly startDate, [FromQuery] DateOnly endDate)
+        {
+            var result = await _orderService.GetSalesStatistics(startDate, endDate);
+            Log.Information("Retrieved sales statistics from {StartDate} to {EndDate}", startDate, endDate);
+            return Ok(result);
+        }
     }
 }

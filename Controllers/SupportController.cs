@@ -1,4 +1,5 @@
 using Gridify;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PCShop_Backend.Dtos.SupportDtos.CreateDtos;
 using PCShop_Backend.Dtos.SupportDtos.UpdateDtos;
@@ -10,6 +11,7 @@ namespace PCShop_Backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Admin")]
     public class SupportController : ControllerBase
     {
         private readonly ISupportService _supportService;
