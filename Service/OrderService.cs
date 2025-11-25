@@ -171,6 +171,44 @@ namespace PCShop_Backend.Service
 
             return receipts;
         }
+        public async Task<Paging<ReceiptDtos>> getAllReceiptsByAdmin(GridifyQuery query)
+        {
+            var key = $"Receipts_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if (!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<Paging<ReceiptDtos>>(cachedData)!;
+            }
+
+            var receipts = await _context.Receipts
+                .Select(r => new ReceiptDtos
+                {
+                    ReceiptId = r.ReceiptId,
+                    UserId = r.UserId,
+                    TotalAmount = r.TotalAmount,
+                    Status = r.Status,
+                    PaymentMethod = r.PaymentMethod,
+                    ShippingAddress = r.ShippingAddress,
+                    City = r.City,
+                    Country = r.Country,
+                    TrackingNumber = r.TrackingNumber,
+                    Notes = r.Notes,
+                    CreatedAt = r.CreatedAt,
+                    UpdatedAt = r.UpdatedAt
+                })
+                .GridifyAsync(query);
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(receipts), options);
+
+            return receipts;
+        }
         public async Task<ReceiptDtos> getReceiptById(int receiptId)
         {
             var key = $"Receipt_{receiptId}".GetHashCode().ToString();

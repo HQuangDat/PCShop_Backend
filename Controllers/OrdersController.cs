@@ -28,6 +28,14 @@ namespace PCShop_Backend.Controllers
             return Ok(result);
         }
 
+        [HttpGet("admin/receipts")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetAllReceiptsByAdmin([FromQuery] GridifyQuery query)
+        {
+            var result = await _orderService.getAllReceiptsByAdmin(query);
+            return Ok(result);
+        }
+
         [HttpGet("receipts/{receiptId}")]
         public async Task<IActionResult> GetReceiptById(int receiptId)
         {
