@@ -66,9 +66,9 @@ namespace PCShop_Backend.Controllers
 
         //===================== Receipt Items Section
         [HttpGet("receipt-items")]
-        public async Task<IActionResult> GetReceiptItems([FromQuery] GridifyQuery query)
+        public async Task<IActionResult> GetReceiptItems(int receiptId, [FromQuery] GridifyQuery query)
         {
-            var result = await _orderService.getReceiptItems(query);
+            var result = await _orderService.getReceiptItems(receiptId,query);
             return Ok(result);
         }
 

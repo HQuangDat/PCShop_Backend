@@ -16,7 +16,7 @@ namespace PCShop_Backend.Service
         Task DeleteReceipt(int receiptId);
 
         // Receipt Items Section
-        Task<Paging<ReceiptItemsDto>> getReceiptItems(GridifyQuery query);
+        Task<Paging<ReceiptItemsDto>> getReceiptItems(int receiptId,GridifyQuery query);
         Task<ReceiptItemsDto> GetReceiptItemById(int receiptItemId);
         Task CreateReceiptItem(CreateReceiptItemDto dto);
         Task UpdateReceiptItem(int receiptItemId, UpdateReceiptItemDto dto);
