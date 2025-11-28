@@ -2,7 +2,6 @@
 {
     public class CreateReceiptItemDto
     {
-        public int ReceiptId { get; set; }
         public int? ComponentId { get; set; }
         public int? BuildId { get; set; }
         public string ItemName { get; set; } = null!;

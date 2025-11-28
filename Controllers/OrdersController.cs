@@ -58,6 +58,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpDelete("receipts/{receiptId}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteReceipt(int receiptId)
         {
             await _orderService.DeleteReceipt(receiptId);
@@ -73,30 +74,30 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpGet("receipt-items/{receiptItemId}")]
-        public async Task<IActionResult> GetReceiptItemById(int receiptItemId)
+        public async Task<IActionResult> GetReceiptItemById(int receiptId,int receiptItemId)
         {
-            var result = await _orderService.GetReceiptItemById(receiptItemId);
+            var result = await _orderService.GetReceiptItemById(receiptId,receiptItemId);
             return Ok(result);
         }
 
         [HttpPost("receipt-items")]
-        public async Task<IActionResult> CreateReceiptItem([FromBody] CreateReceiptItemDto dto)
+        public async Task<IActionResult> CreateReceiptItem(int receiptId,[FromBody] CreateReceiptItemDto dto)
         {
-            await _orderService.CreateReceiptItem(dto);
+            await _orderService.CreateReceiptItem(receiptId,dto);
             return Ok(new { message = "Created receipt item." });
         }
 
         [HttpPut("receipt-items/{receiptItemId}")]
-        public async Task<IActionResult> UpdateReceiptItem(int receiptItemId, [FromBody] UpdateReceiptItemDto dto)
+        public async Task<IActionResult> UpdateReceiptItem(int receiptId,int receiptItemId, [FromBody] UpdateReceiptItemDto dto)
         {
-            await _orderService.UpdateReceiptItem(receiptItemId, dto);
+            await _orderService.UpdateReceiptItem(receiptId,receiptItemId, dto);
             return Ok(new { message = "Updated receipt item." });
         }
 
         [HttpDelete("receipt-items/{receiptItemId}")]
-        public async Task<IActionResult> DeleteReceiptItem(int receiptItemId)
+        public async Task<IActionResult> DeleteReceiptItem(int receiptId, int receiptItemId)
         {
-            await _orderService.DeleteReceiptItem(receiptItemId);
+            await _orderService.DeleteReceiptItem(receiptId,receiptItemId);
             return Ok(new { message = "Deleted receipt item." });
         }
 

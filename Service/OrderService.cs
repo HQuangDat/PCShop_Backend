@@ -245,7 +245,7 @@ namespace PCShop_Backend.Service
 
             return receiptItems;
         }
-        public async Task<ReceiptItemsDto> GetReceiptItemById(int receiptItemId)
+        public async Task<ReceiptItemsDto> GetReceiptItemById(int receiptId, int receiptItemId)
         {
             var key = $"ReceiptItem_{receiptItemId}".GetHashCode().ToString();
 
@@ -262,7 +262,7 @@ namespace PCShop_Backend.Service
             }
 
             var existingReceiptItem = await _context.ReceiptItems
-                .Where(ri => ri.ReceiptItemId == receiptItemId)
+                .Where(ri => ri.ReceiptItemId == receiptItemId && ri.ReceiptId == receiptId)
                 .Select(ri => new ReceiptItemsDto
                 {
                     ReceiptItemId = ri.ReceiptItemId,
@@ -284,25 +284,28 @@ namespace PCShop_Backend.Service
             return existingReceiptItem!;
         }
 
-        public async Task CreateReceiptItem(CreateReceiptItemDto dto)
+        public async Task CreateReceiptItem(int receiptId, CreateReceiptItemDto dto)
         {
-            var newReceiptItem = new ReceiptItem
+            var newReceiptItems = new List<ReceiptItem>
             {
-                ReceiptId = dto.ReceiptId,
-                ComponentId = dto.ComponentId,
-                BuildId = dto.BuildId,
-                ItemName = dto.ItemName,
-                Quantity = dto.Quantity,
-                UnitPrice = dto.UnitPrice
+                new ReceiptItem
+                {
+                    ReceiptId = receiptId,
+                    ComponentId = dto.ComponentId,
+                    BuildId = dto.BuildId,
+                    ItemName = dto.ItemName,
+                    Quantity = dto.Quantity,
+                    UnitPrice = dto.UnitPrice
+                }
             };
-            await _context.ReceiptItems.AddAsync(newReceiptItem);
-            Log.Information($"A new receipt item with id: {newReceiptItem.ReceiptItemId} has been created");
+            await _context.ReceiptItems.AddRangeAsync(newReceiptItems);
+            Log.Information($"A new receipt items has been created");
             await _context.SaveChangesAsync();
         }
 
-        public async Task UpdateReceiptItem(int receiptItemId, UpdateReceiptItemDto dto)
+        public async Task UpdateReceiptItem(int receiptId, int receiptItemId, UpdateReceiptItemDto dto)
         {
-            var existingReceiptItem = await _context.ReceiptItems.FirstOrDefaultAsync(ri => ri.ReceiptItemId == receiptItemId);
+            var existingReceiptItem = await _context.ReceiptItems.Where(ri=>ri.ReceiptId == receiptId).FirstOrDefaultAsync(ri => ri.ReceiptItemId == receiptItemId);
             if (existingReceiptItem == null)
             {
                 throw new NotFoundException("Receipt item not found.");
@@ -316,12 +319,14 @@ namespace PCShop_Backend.Service
             Log.Information($"Receipt item with id: {existingReceiptItem.ReceiptItemId} has been updated");
             await _context.SaveChangesAsync();
 
-            var key = $"ReceiptItem_{receiptItemId}".GetHashCode().ToString();
+            var key = $"ReceiptId_{receiptId}_ReceiptItem_{receiptItemId}".GetHashCode().ToString();
             await _distributedCache.RemoveAsync(key);
         }
-        public async Task DeleteReceiptItem(int receiptItemId)
+        public async Task DeleteReceiptItem(int receiptId, int receiptItemId)
         {
-            var existingReceiptItem = await _context.ReceiptItems.FirstOrDefaultAsync(ri => ri.ReceiptItemId == receiptItemId);
+            var existingReceiptItem = await _context.ReceiptItems
+                .Where(ri => ri.ReceiptId == receiptId)
+                .FirstOrDefaultAsync(ri => ri.ReceiptItemId == receiptItemId);
             if (existingReceiptItem == null)
             {
                 throw new NotFoundException("Receipt item not found.");

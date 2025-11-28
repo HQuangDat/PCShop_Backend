@@ -17,10 +17,10 @@ namespace PCShop_Backend.Service
 
         // Receipt Items Section
         Task<Paging<ReceiptItemsDto>> getReceiptItems(int receiptId,GridifyQuery query);
-        Task<ReceiptItemsDto> GetReceiptItemById(int receiptItemId);
-        Task CreateReceiptItem(CreateReceiptItemDto dto);
-        Task UpdateReceiptItem(int receiptItemId, UpdateReceiptItemDto dto);
-        Task DeleteReceiptItem(int receiptItemId);
+        Task<ReceiptItemsDto> GetReceiptItemById(int receiptId, int receiptItemId);
+        Task CreateReceiptItem(int receiptId, CreateReceiptItemDto dto);
+        Task UpdateReceiptItem(int receiptId,int receiptItemId, UpdateReceiptItemDto dto);
+        Task DeleteReceiptItem(int receiptId, int receiptItemId);
 
         // Sales Statistics
         Task<List<SalesStatisticDto>> GetSalesStatistics(DateOnly startDate, DateOnly endDate);
