@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -14,18 +14,23 @@ using Hangfire;
 using Hangfire.SqlServer;
 
 // Configure Serilog BEFORE creating the WebApplication builder
-Log.Logger = new LoggerConfiguration()
+var loggerConfig = new LoggerConfiguration()
     .MinimumLevel.Debug()
-    .WriteTo.Console(
-        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz}] [{Level:u3}] {Message:lj}{NewLine}{Exception}")
     .WriteTo.File(
         path: "logs/log-.txt",
         restrictedToMinimumLevel: LogEventLevel.Information,
         rollingInterval: RollingInterval.Day,
         outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz}] [{Level:u3}] {Message:lj}{NewLine}{Exception}")
     .Enrich.FromLogContext()
-    .Enrich.WithProperty("Application", "PCShop_Backend")
-    .CreateLogger();
+    .Enrich.WithProperty("Application", "PCShop_Backend");
+
+// Chỉ thêm Console logging khi debug
+#if DEBUG
+loggerConfig.WriteTo.Console(
+    outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz}] [{Level:u3}] {Message:lj}{NewLine}{Exception}");
+#endif
+
+Log.Logger = loggerConfig.CreateLogger();
 
 try
 {
