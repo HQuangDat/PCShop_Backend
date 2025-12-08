@@ -147,44 +147,61 @@ namespace PCShop_Backend.Service
         }
         public async Task updateComponent(int id, updateComponentDto updateComponentDto)
         {
-            var component = await _context.Components.FindAsync(id);
-
-            if (component == null)
+            int countTry = 0;
+            int maxRetry = 3;
+            while (countTry < maxRetry)
             {
-                throw new Exceptions.NotFoundException($"Component with ID {id} not found");
+                try
+                {
+                    var component = await _context.Components.FindAsync(id);
+
+                    if (component == null)
+                    {
+                        throw new Exceptions.NotFoundException($"Component with ID {id} not found");
+                    }
+
+                    if (updateComponentDto.Price <= 0)
+                    {
+                        throw new ValidationException("Price must be greater than 0");
+                    }
+
+                    if (updateComponentDto.StockQuantity < 0)
+                    {
+                        throw new ValidationException("Stock quantity cannot be negative");
+                    }
+
+                    var categoryExists = await _context.ComponentCategories
+                        .AnyAsync(c => c.CategoryId == updateComponentDto.CategoryId);
+
+                    if (!categoryExists)
+                    {
+                        throw new ValidationException($"Category with ID {updateComponentDto.CategoryId} not found");
+                    }
+
+                    component.Name = updateComponentDto.Name;
+                    component.CategoryId = updateComponentDto.CategoryId;
+                    component.Brand = updateComponentDto.Brand;
+                    component.Price = updateComponentDto.Price;
+                    component.StockQuantity = updateComponentDto.StockQuantity;
+                    component.ImageUrl = updateComponentDto.ImageUrl;
+                    component.IsActive = updateComponentDto.IsActive;
+                    component.Description = updateComponentDto.Description;
+                    component.UpdatedAt = DateTime.UtcNow;
+
+                    await _context.SaveChangesAsync();
+                    var key = $"Component_{id}".GetHashCode().ToString();
+                    await _distributedCache.RemoveAsync(key);
+                    break;
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    countTry++;
+                    if (countTry == maxRetry)
+                    {
+                        throw new Exception("The record you attempted to edit was modified by another user after you got the original value. The edit operation was canceled.");
+                    }
+                }
             }
-
-            if (updateComponentDto.Price <= 0)
-            {
-                throw new ValidationException("Price must be greater than 0");
-            }
-
-            if (updateComponentDto.StockQuantity < 0)
-            {
-                throw new ValidationException("Stock quantity cannot be negative");
-            }
-
-            var categoryExists = await _context.ComponentCategories
-                .AnyAsync(c => c.CategoryId == updateComponentDto.CategoryId);
-
-            if (!categoryExists)
-            {
-                throw new ValidationException($"Category with ID {updateComponentDto.CategoryId} not found");
-            }
-
-            component.Name = updateComponentDto.Name;
-            component.CategoryId = updateComponentDto.CategoryId;
-            component.Brand = updateComponentDto.Brand;
-            component.Price = updateComponentDto.Price;
-            component.StockQuantity = updateComponentDto.StockQuantity;
-            component.ImageUrl = updateComponentDto.ImageUrl;
-            component.IsActive = updateComponentDto.IsActive;
-            component.Description = updateComponentDto.Description;
-            component.UpdatedAt = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-            var key = $"Component_{id}".GetHashCode().ToString();
-            await _distributedCache.RemoveAsync(key);
         }
         public async Task deleteComponent(int id)
         {

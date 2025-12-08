@@ -55,4 +55,7 @@ public partial class Component
 
     [InverseProperty("Component")]
     public virtual ICollection<ReceiptItem> ReceiptItems { get; set; } = new List<ReceiptItem>();
+
+    [Timestamp]
+    public byte[] RowVersion { get; set; } = null!;
 }
