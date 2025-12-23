@@ -90,7 +90,7 @@ namespace PCShop_Backend.Controllers
             return Ok(users);
         }
 
-        [HttpGet("users/{userId}")]
+        [HttpGet("/{userId}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetUserById(int userId)
         {
@@ -105,15 +105,15 @@ namespace PCShop_Backend.Controllers
             return Ok(user);
         }
 
-        [HttpPost("users/register")]
-        public async Task<IActionResult> RegisterUser(RegisterUserDto dto)
+        [HttpPost("register")]
+        public async Task<IActionResult> RegisterUser([FromBody]RegisterUserDto dto)
         {
             await _userService.RegisterUser(dto);
             Log.Information("User registered successfully: {Email}", dto.Email);
             return Ok(new { message = "User registered successfully!" });
         }
 
-        [HttpPut("users/{userId}")]
+        [HttpPut("/{userId}")]
         [Authorize]
         public async Task<IActionResult> UpdateUser(int userId, UpdateUserDto dto)
         {
@@ -132,7 +132,7 @@ namespace PCShop_Backend.Controllers
             return Ok(new { message = "User updated successfully!" });
         }
 
-        [HttpDelete("users/{userId}")]
+        [HttpDelete("/{userId}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteUser(int userId)
         {

@@ -1,4 +1,6 @@
-﻿namespace PCShop_Backend.Dtos.AuthDtos
+﻿using System.Text.Json.Serialization;
+
+namespace PCShop_Backend.Dtos.AuthDtos
 {
     public class LoginDto
     {
