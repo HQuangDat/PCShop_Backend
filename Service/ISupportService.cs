@@ -9,6 +9,7 @@ namespace PCShop_Backend.Service
     {
         //--------Support Tickets--------//
         Task<Paging<SupportTicketDto>> getTickets(GridifyQuery gridifyQuery);
+        Task<Paging<SupportTicketDto>> getTicketsForUser(GridifyQuery gridifyQuery);
         Task<SupportTicketDto> getTicketById(int ticketId);
         Task CreateSupportTicket(CreateSupportTicketDto dto);
         Task UpdateSupportTicket(int ticketId, UpdateSupportTicketDto dto);

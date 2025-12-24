@@ -28,6 +28,7 @@ namespace PCShop_Backend.Service
         }
 
         //------------Role service----------------
+        //Function lay danh sach vai tro co phan trang va loc
         public async Task<Paging<RoleDto>> getRoles(GridifyQuery query)
         {
             var key = $"Roles_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
@@ -58,6 +59,7 @@ namespace PCShop_Backend.Service
             return result;
         }
 
+        //Function lay thong tin vai tro theo ID
         public async Task<RoleDto> getRoleById(int roleId)
         {
             var key = $"Role_{roleId}".GetHashCode().ToString();
@@ -92,6 +94,7 @@ namespace PCShop_Backend.Service
             return roleDto;
         }
 
+        //Function tao vai tro
         public async Task CreateRole(CreateRoleDto dto)
         {
             var role = _context.Roles.Add(new Role
@@ -103,6 +106,7 @@ namespace PCShop_Backend.Service
             await _context.SaveChangesAsync();
         }
 
+        //Function xoa vai tro
         public async Task DeleteRole(int roleId)
         {
             var existingRole = await _context.Roles.FirstOrDefaultAsync(r => r.RoleId == roleId);
@@ -117,6 +121,7 @@ namespace PCShop_Backend.Service
             await _distributedCache.RemoveAsync(key);
         }
 
+        //Function update vai tro
         public async Task UpdateRole(int roleId, UpdateRoleDto dto)
         {
             var existingRole = await _context.Roles.FirstOrDefaultAsync(r => r.RoleId == roleId);
@@ -135,6 +140,7 @@ namespace PCShop_Backend.Service
 
         //------------User service----------------
 
+        //Function lay danh sach nguoi dung co phan trang va loc
         public async Task<Paging<UserDto>> getUsers(GridifyQuery gridifyQuery)
         {
             var key = $"Users_{gridifyQuery.Page}_{gridifyQuery.PageSize}_{gridifyQuery.Filter}_{gridifyQuery.OrderBy}".GetHashCode().ToString();
@@ -174,6 +180,7 @@ namespace PCShop_Backend.Service
             return result;
         }
 
+        //Function lay thong tin nguoi dung theo ID
         public async Task<UserDto> GetUserById(int id)
         {
             var key = $"User_{id}".GetHashCode().ToString();
@@ -219,6 +226,7 @@ namespace PCShop_Backend.Service
             return existingUser;
         }
 
+        //Function dang ky tai khoan 
         public async Task RegisterUser(RegisterUserDto dto)
         {
             var user = new User
@@ -241,6 +249,7 @@ namespace PCShop_Backend.Service
             Log.Information($"New user registered: {dto.Username}");
         }
 
+        //Function xoa tai khoan nguoi dung
         public async Task DeleteUser(int userId)
         {
             var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
@@ -255,6 +264,8 @@ namespace PCShop_Backend.Service
             await _distributedCache.RemoveAsync(key);
         }
 
+
+        //Function update tai khoan nguoi dung
         public async Task UpdateUser(int userId, UpdateUserDto dto)
         {
             var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);

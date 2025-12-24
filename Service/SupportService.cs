@@ -29,8 +29,10 @@ namespace PCShop_Backend.Service
         }
 
         //--------Support Tickets--------//
+        //Lay moi ticket danh cho admin
         public async Task<Paging<SupportTicketDto>> getTickets(GridifyQuery gridifyQuery)
         {
+            // Khoi tao key cho cache du lieu
             var key = $"Tickets_{gridifyQuery.Page}_{gridifyQuery.PageSize}_{gridifyQuery.Filter}_{gridifyQuery.OrderBy}".GetHashCode().ToString();
 
             var options = new DistributedCacheEntryOptions
@@ -39,12 +41,14 @@ namespace PCShop_Backend.Service
                 SlidingExpiration = TimeSpan.FromMinutes(5)
             };
 
+            // Kiem tra cache co du lieu chua
             var cachedData = await _distributedCache.GetStringAsync(key);
             if(!string.IsNullOrEmpty(cachedData))
             {
                 return JsonConvert.DeserializeObject<Paging<SupportTicketDto>>(cachedData)!;
             }
 
+            // Neu chua co, truy van du lieu tu database
             var query = _context.Tickets
                             .Include(cm => cm.TicketComments)
                             .Select(t => new SupportTicketDto
@@ -66,6 +70,56 @@ namespace PCShop_Backend.Service
                             });
 
             var result = await query.GridifyAsync(gridifyQuery);
+            // Luu ket qua vao cache
+
+            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
+
+            return result;
+        }
+
+        //Lay ticket cua user dang nhap
+        public async Task<Paging<SupportTicketDto>> getTicketsForUser(GridifyQuery gridifyQuery)
+        {
+            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);            
+            // Khoi tao key cho cache du lieu
+            var key = $"Tickets_{userId}_{gridifyQuery.Page}_{gridifyQuery.PageSize}_{gridifyQuery.Filter}_{gridifyQuery.OrderBy}".GetHashCode().ToString();
+
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                SlidingExpiration = TimeSpan.FromMinutes(5)
+            };
+
+            // Kiem tra cache co du lieu chua
+            var cachedData = await _distributedCache.GetStringAsync(key);
+            if (!string.IsNullOrEmpty(cachedData))
+            {
+                return JsonConvert.DeserializeObject<Paging<SupportTicketDto>>(cachedData)!;
+            }
+
+            // Neu chua co, truy van du lieu tu database
+            var query = _context.Tickets
+                            .Include(cm => cm.TicketComments)
+                            .Select(t => new SupportTicketDto
+                            {
+                                TicketId = t.TicketId,
+                                UserId = t.UserId,
+                                Title = t.Title,
+                                Description = t.Description,
+                                Status = t.Status,
+                                Priority = t.Priority,
+                                AssignedToUserId = t.AssignedToUserId,
+                                UpdatedAt = t.UpdatedAt,
+                                Comments = t.TicketComments.Select(tc => new SupportTicketCommentDto
+                                {
+                                    CommentId = tc.CommentId,
+                                    CommentText = tc.CommentText,
+                                    CreatedAt = tc.CreatedAt
+                                }).ToList()
+                            }).Where(u => u.UserId == userId);
+
+            var result = await query.GridifyAsync(gridifyQuery);
+            // Luu ket qua vao cache
 
             await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
 
@@ -206,6 +260,7 @@ namespace PCShop_Backend.Service
 
         public async Task AddTicketComment(int ticketId,AddSupportTicketCommentDto dto)
         {
+            //Lay userId tu token dang nhap
             var userIdClaim = _httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier);
             int.TryParse(userIdClaim, out var userId);
             var addComment = new TicketComment
@@ -218,6 +273,7 @@ namespace PCShop_Backend.Service
             await _context.TicketComments.AddAsync(addComment);
             await _context.SaveChangesAsync();
 
+            //Xoa cache de cap nhat du lieu moi
             var key = $"Ticket_{ticketId}".GetHashCode().ToString();
             await _distributedCache.RemoveAsync(key);
         }

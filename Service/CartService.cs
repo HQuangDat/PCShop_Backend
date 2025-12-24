@@ -31,7 +31,8 @@ namespace PCShop_Backend.Service
 
         public async Task<Paging<CartItemsDtos>> getCartItems(GridifyQuery query)
         {
-            var key = $"CartItems_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
+            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+            var key = $"CartItems_{userId}_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
 
             var options = new DistributedCacheEntryOptions
             {
@@ -56,9 +57,10 @@ namespace PCShop_Backend.Service
                     BuildId = ci.BuildId,
                     Quantity = ci.Quantity,
                     AddedAt = ci.AddedAt
-                })
+                }).Where(ci => ci.UserId == userId)
                 .GridifyAsync(query);
 
+            //cache the data
             await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(cartitems), options);
 
             return cartitems;

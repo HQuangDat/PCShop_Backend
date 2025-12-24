@@ -11,7 +11,6 @@ namespace PCShop_Backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin")]
     public class SupportController : ControllerBase
     {
         private readonly ISupportService _supportService;
@@ -24,11 +23,20 @@ namespace PCShop_Backend.Controllers
         // GET: api/Support/tickets
 
         [HttpGet("tickets")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAllTickets([FromQuery] GridifyQuery query)
         {
             await _supportService.getTickets(query);
             return Ok();
         }
+
+        [HttpGet("user-tickets")]
+        public async Task<IActionResult> GetUserTickets([FromQuery] GridifyQuery query)
+        {
+            await _supportService.getTicketsForUser(query);
+            return Ok();
+        }
+
 
         [HttpGet("ticket/{id}")]
         public async Task<IActionResult> GetTicketById(int id)
@@ -47,6 +55,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpPut("supportTicket-update/{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateSupportTicket(int id, [FromBody] UpdateSupportTicketDto dto)
         {
             await _supportService.UpdateSupportTicket(id, dto);

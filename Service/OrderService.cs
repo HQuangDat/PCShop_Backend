@@ -36,7 +36,9 @@ namespace PCShop_Backend.Service
         // ========== Receipts Section ==========
         public async Task<Paging<ReceiptDtos>> getReceipts(GridifyQuery query)
         {
-            var key = $"Receipts_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
+            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+            
+            var key = $"Receipts_{userId}_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
 
             var options = new DistributedCacheEntryOptions
             {
@@ -50,7 +52,6 @@ namespace PCShop_Backend.Service
                 return JsonConvert.DeserializeObject<Paging<ReceiptDtos>>(cachedData)!;
             }
 
-            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
             var receipts = await _context.Receipts
                 .Where(r => r.UserId == userId)
                 .Select(r => new ReceiptDtos
@@ -114,7 +115,9 @@ namespace PCShop_Backend.Service
         }
         public async Task<ReceiptDtos> getReceiptById(int receiptId)
         {
-            var key = $"Receipt_{receiptId}".GetHashCode().ToString();
+            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+
+            var key = $"Receipt_{userId}_{receiptId}".GetHashCode().ToString();
 
             var options = new DistributedCacheEntryOptions
             {
@@ -128,7 +131,6 @@ namespace PCShop_Backend.Service
                 return JsonConvert.DeserializeObject<ReceiptDtos>(cachedData)!;
             }
 
-            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
             var existingReceipt = await _context.Receipts
                 .Where(r => r.ReceiptId == receiptId && r.UserId == userId)
                 .Select(r => new ReceiptDtos
@@ -345,8 +347,10 @@ namespace PCShop_Backend.Service
             var startDateTime = startDate.ToDateTime(TimeOnly.MinValue);
             var endDateTime = endDate.ToDateTime(TimeOnly.MaxValue);
 
+            // Query kiem tra ReceiptItems trong khoang thoi gian
             var salesStats = await _context.ReceiptItems
                 .Where(ri => ri.Receipt.CreatedAt >= startDateTime && ri.Receipt.CreatedAt <= endDateTime)
+                //Kiem tra ComponentId khac null
                 .Where(ri => ri.ComponentId.HasValue)
                 .GroupBy(ri => new { ri.ComponentId, ri.Component.Name }) 
                 .Select(g => new SalesStatisticDto
