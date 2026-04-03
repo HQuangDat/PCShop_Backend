@@ -71,7 +71,10 @@ namespace PCShop_Backend.Service
             var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
 
             var component = await _context.Components.FirstOrDefaultAsync(c => c.ComponentId == dto.ComponentId);
-
+            if (component == null)
+            {
+                throw new NotFoundException("Component not found.");
+            }
             // Check stock availability
             if (component!.StockQuantity < dto.Quantity)
             {

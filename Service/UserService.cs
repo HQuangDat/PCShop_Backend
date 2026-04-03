@@ -229,6 +229,10 @@ namespace PCShop_Backend.Service
         //Function dang ky tai khoan 
         public async Task RegisterUser(RegisterUserDto dto)
         {
+            if(await _context.Users.AnyAsync(e=>e.Email == dto.Email || e.Username == dto.Username))
+            {
+                throw new ConflictException("Email or Username already exists");
+            }
             var user = new User
             {
                 Username = dto.Username,

@@ -614,6 +614,7 @@ namespace PCShop_Backend.Service
             build.IsPublic = dto.IsPublic;
             build.UpdatedAt = DateTime.UtcNow;
 
+            //check if components are valid and active
             if (dto.Components != null && dto.Components.Any())
             {
                 var componentIds = dto.Components.Select(c => c.ComponentId).Distinct().ToList();
@@ -622,6 +623,7 @@ namespace PCShop_Backend.Service
                     .Select(c => c.ComponentId)
                     .ToListAsync();
 
+                //check quantity of each component
                 if (validComponents.Count != componentIds.Count)
                 {
                     var invalidIds = componentIds.Except(validComponents);
@@ -631,6 +633,7 @@ namespace PCShop_Backend.Service
 
                 var existingComponents = build.PcbuildComponents.ToList();
 
+                // Remove components that are no longer in the build
                 var componentsToRemove = existingComponents
                     .Where(ec => !componentIds.Contains(ec.ComponentId))
                     .ToList();

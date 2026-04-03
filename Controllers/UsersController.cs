@@ -121,6 +121,7 @@ namespace PCShop_Backend.Controllers
                 throw new ArgumentException("User ID must be greater than 0.");
 
             // Check if the user is updating their own profile or is an admin
+            //Kiem tra neu user dang login co id trung voi id can update hay ko, neu ko phai admin thi ko dc phep update
             var currentUserId = int.TryParse(User.FindFirst("sub")?.Value, out var id) ? id : 0;
             if (currentUserId != userId && !User.IsInRole("Admin"))
             {

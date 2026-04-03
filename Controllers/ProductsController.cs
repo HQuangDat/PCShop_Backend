@@ -11,7 +11,6 @@ namespace PCShop_Backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin")]
     public class ProductsController : ControllerBase
     {
         private readonly IProductService _productService;
@@ -47,6 +46,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpPost("component/create")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateComponent([FromBody] createComponentDto createComponentDto)
         {
             await _productService.createComponent(createComponentDto);
@@ -55,6 +55,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpPut("component/update/{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateComponent(int id, [FromBody] updateComponentDto updateComponentDto)
         {
             if (id <= 0)
@@ -66,6 +67,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpDelete("component/delete/{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteComponent(int id)
         {
             if (id <= 0)
@@ -102,6 +104,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpPost("component-category/create")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateComponentCategory([FromBody] CreateComponentCategoryDto createComponentCategoryDto)
         {
             await _productService.addComponentCategory(createComponentCategoryDto);
@@ -110,6 +113,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpPut("component-category/update/{categoryId}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateComponentCategory(int categoryId, [FromBody] UpdateComponentCategoryDto updateComponentCategoryDto)
         {
             if (categoryId <= 0)
@@ -119,8 +123,9 @@ namespace PCShop_Backend.Controllers
             Log.Information("Component category updated successfully with ID {CategoryId}", categoryId);
             return Ok(new { message = "Component category updated successfully" });
         }
-
+    
         [HttpDelete("component-category/delete/{categoryId}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteComponentCategory(int categoryId)
         {
             if (categoryId <= 0)
@@ -157,6 +162,7 @@ namespace PCShop_Backend.Controllers
         }
         
         [HttpPost("component-spec/create")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateComponentSpec([FromBody] CreateComponentSpecDto createComponentSpecDto)
         {
             await _productService.addComponentSpecs(createComponentSpecDto);
@@ -165,6 +171,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpPut("component-spec/update/{specId}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateComponentSpec(int specId, [FromBody] UpdateComponentSpecDto updateComponentSpecDto)
         {
             if (specId <= 0)
@@ -176,6 +183,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpDelete("component-spec/delete/{specId}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteComponentSpec(int specId)
         {
             if (specId <= 0)
@@ -212,6 +220,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpPost("pcbuild/create")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreatePcBuild([FromBody] CreatePcBuildDto createPcBuildDto)
         {
             await _productService.createPcbuild(createPcBuildDto);
@@ -220,6 +229,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpPut("pcbuild/update/{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdatePcBuild(int id, [FromBody] UpdatePcBuildDto updatePcBuildDto)
         {
             if (id <= 0)
@@ -231,6 +241,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpDelete("pcbuild/delete/{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeletePcBuild(int id)
         {
             if (id <= 0)

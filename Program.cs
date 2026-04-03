@@ -150,12 +150,12 @@ try
     Log.Information("Application built successfully");
 
     // Configure the HTTP request pipeline.
-    if (app.Environment.IsDevelopment())
-    {
+    //if (app.Environment.IsDevelopment())
+    //{
         Log.Information("Running in Development environment");
         app.UseSwagger();
         app.UseSwaggerUI();
-    }
+    //}
 
     app.UseHttpsRedirection();
 

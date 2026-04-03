@@ -41,7 +41,7 @@ namespace PCShop_Backend.Service
             if (existUser == null)
             {
                 Log.Error("User with username: {Username} is not found.", dto.username);
-                throw new NotFoundException($"User with username {dto.username} not found");
+                throw new NotFoundException("Invalid Username or Password");
             }
             if(VerifyHashPassword(existUser, existUser.PasswordHash, dto.password) == PasswordVerificationResult.Success)
             {
@@ -56,6 +56,7 @@ namespace PCShop_Backend.Service
             }
         }
 
+        // Hàm kiểm tra mật khẩu đã hash
         public PasswordVerificationResult VerifyHashPassword(User user, string userPassword, string inputPassword)
         {
             return _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, inputPassword);
@@ -68,8 +69,8 @@ namespace PCShop_Backend.Service
                 .FirstOrDefaultAsync(u => u.Email == email);
             if (existEmail == null)
             {
-                Log.Error("Email: {Email} not found for password reset.", email);
-                throw new NotFoundException($"Email {email} not found");
+                Log.Error("Invalid Email");
+                throw new NotFoundException("Invalid Email");
             }
 
             var existingReset = await _context.PasswordResets
@@ -80,7 +81,7 @@ namespace PCShop_Backend.Service
             {
                 if(existingReset.ExpireDate > DateTime.UtcNow)
                 {
-                    Log.Error("A valid reset token already exists for email: {Email}", email);
+                    Log.Error("A valid reset token already exists");
                     throw new ArgumentException("A valid reset token already exists. Please check your email.");
                 }
                 else if(existingReset.ExpireDate <= DateTime.UtcNow)
@@ -135,7 +136,7 @@ namespace PCShop_Backend.Service
 
             if (user == null)
             {
-                Log.Error("User not found for email: {Email}", passwordReset.Email);
+                Log.Error("User not found");
                 throw new NotFoundException("User not found.");
             }
 
