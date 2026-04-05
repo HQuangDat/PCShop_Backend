@@ -16,6 +16,8 @@ using PCShop_Backend.Models;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace PCShop_Backend.Service
 {
@@ -24,12 +26,14 @@ namespace PCShop_Backend.Service
         private readonly ApplicationDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IDistributedCache _distributedCache;
+        private readonly ICacheService _cacheService;
 
-        public ProductService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, IDistributedCache distributedCache)
+        public ProductService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, IDistributedCache distributedCache, ICacheService cacheService)
         {
             _context = context;
             _httpContextAccessor = httpContextAccessor;
             _distributedCache = distributedCache;
+            _cacheService = cacheService;
         }
 
         // ==================Component==================\\
@@ -444,18 +448,25 @@ namespace PCShop_Backend.Service
 
         public async Task<Paging<PcBuildDto>> getPcBuilds(GridifyQuery query)
         {
-            var key = $"PcBuilds_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
+            //Tao key cho cache bằng cách kết hợp các tham số truy vấn và băm chúng để tránh key quá dài
+            var Rawkey = $"PcBuilds_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Rawkey)));
 
-            var options = new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                SlidingExpiration = TimeSpan.FromMinutes(5)
-            };
+            //var options = new DistributedCacheEntryOptions
+            //{
+            //    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+            //    SlidingExpiration = TimeSpan.FromMinutes(5)
+            //};
 
-            var cachedData = await _distributedCache.GetStringAsync(key);
-            if(!string.IsNullOrEmpty(cachedData))
+            //var cachedData = await _distributedCache.GetStringAsync(key);
+            //if(!string.IsNullOrEmpty(cachedData))
+            //{
+            //    return JsonConvert.DeserializeObject<Paging<PcBuildDto>>(cachedData)!;
+            //}
+            var cachedData = await _cacheService.GetAsync<Paging<PcBuildDto>>(key);
+            if(cachedData != null)
             {
-                return JsonConvert.DeserializeObject<Paging<PcBuildDto>>(cachedData)!;
+                return cachedData;
             }
 
             var build =  _context.Pcbuilds
@@ -488,8 +499,8 @@ namespace PCShop_Backend.Service
                 });
             var result = await build.GridifyAsync(query);
 
-            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
-
+            //await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
+            await _cacheService.SetAsync(key,result);
             return result;
         }
         public async Task<PcBuildDto> getPcbuildById(int buildId)

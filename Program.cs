@@ -87,6 +87,7 @@ try
     builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
     builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
     builder.Services.AddScoped<IEmailService, EmailService>();
+    builder.Services.AddScoped<ICacheService, CacheService>();
     builder.Services.AddHttpContextAccessor();
 
     builder.Services.AddStackExchangeRedisCache(redisOptions =>
