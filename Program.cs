@@ -10,6 +10,9 @@ using Microsoft.OpenApi.Models;
 using Serilog;
 using Serilog.Events;
 using System.Text;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
+using Hangfire.Dashboard.BasicAuthorization;
 using Hangfire;
 using Hangfire.SqlServer;
 
@@ -135,6 +138,25 @@ try
             }));
     builder.Services.AddHangfireServer();
 
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? httpContext.Request.Headers.Host.ToString(),
+                factory: partition => new FixedWindowRateLimiterOptions
+                {
+                    AutoReplenishment = true,
+                    PermitLimit = 100,
+                    QueueLimit = 0,
+                    Window = TimeSpan.FromMinutes(1)
+                }));
+        options.OnRejected = async (context, token) =>
+        {
+            context.HttpContext.Response.StatusCode = 429;
+            await context.HttpContext.Response.WriteAsync("{\"message\": \"Too many requests. Please try again later.\", \"statusCode\": 429}", token);
+        };
+    });
+
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("AllowFrontend", policy =>
@@ -159,6 +181,9 @@ try
     //}
 
     app.UseHttpsRedirection();
+    
+    app.UseMiddleware<SecurityHeadersMiddleware>();
+    app.UseRateLimiter();
 
     app.UseCors("AllowFrontend");
     app.UseAuthentication();
@@ -166,7 +191,23 @@ try
 
     app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 
-    app.UseHangfireDashboard();
+    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    {
+        Authorization = new[] { new BasicAuthAuthorizationFilter(new BasicAuthAuthorizationFilterOptions
+        {
+            RequireSsl = false,
+            SslRedirect = false,
+            LoginCaseSensitive = true,
+            Users = new []
+            {
+                new BasicAuthAuthorizationUser
+                {
+                    Login = builder.Configuration["Hangfire:User"] ?? "admin",
+                    PasswordClear = builder.Configuration["Hangfire:Password"] ?? "admin123"
+                }
+            }
+        }) }
+    });
 
     app.MapControllers();
 

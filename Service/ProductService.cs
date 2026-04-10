@@ -25,32 +25,26 @@ namespace PCShop_Backend.Service
     {
         private readonly ApplicationDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly IDistributedCache _distributedCache;
         private readonly ICacheService _cacheService;
 
-        public ProductService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, IDistributedCache distributedCache, ICacheService cacheService)
+        public ProductService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, ICacheService cacheService)
         {
             _context = context;
             _httpContextAccessor = httpContextAccessor;
-            _distributedCache = distributedCache;
             _cacheService = cacheService;
         }
 
         // ==================Component==================\\
         public async Task<Paging<ComponentDto>> getComponents(GridifyQuery query)
         {
-            var key = $"Components_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
+            //Tao key cho cache
+            var rawKey = $"Components_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
-            var options = new DistributedCacheEntryOptions
+            var cachedData = await _cacheService.GetAsync<Paging<ComponentDto>>(key);
+            if(cachedData != null)
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                SlidingExpiration = TimeSpan.FromMinutes(5)
-            };
-            //check if data is cached
-            var cachedData = await _distributedCache.GetStringAsync(key);
-            if(!string.IsNullOrEmpty(cachedData))
-            {
-                return JsonConvert.DeserializeObject<Paging<ComponentDto>>(cachedData)!;
+                return cachedData;
             }
             //if not cached, query the database
             var componentsQuery = await _context.Components
@@ -80,7 +74,7 @@ namespace PCShop_Backend.Service
             }
 
             //cached that data
-            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(componentsQuery), options);
+            await _cacheService.SetAsync(key, componentsQuery);
 
             return componentsQuery;
         }
@@ -103,18 +97,13 @@ namespace PCShop_Backend.Service
         }
         public async Task<ComponentDto> getComponentById(int id)
         {
-            var key = $"Component_{id}".GetHashCode().ToString();
+            var rawKey = $"Component_{id}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
-            var options = new DistributedCacheEntryOptions
+            var cachedData = await _cacheService.GetAsync<ComponentDto>(key);
+            if(cachedData != null)
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                SlidingExpiration = TimeSpan.FromMinutes(5)
-            };
-
-            var cachedData = await _distributedCache.GetStringAsync(key);
-            if(!string.IsNullOrEmpty(cachedData))
-            {
-                return JsonConvert.DeserializeObject<ComponentDto>(cachedData)!;
+                return cachedData;
             }
 
             var component = await _context.Components
@@ -145,7 +134,7 @@ namespace PCShop_Backend.Service
                 }).ToList()
             };
 
-            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(componentDto), options);
+            await _cacheService.SetAsync(key, componentDto);
 
             return componentDto;
         }
@@ -193,8 +182,9 @@ namespace PCShop_Backend.Service
                     component.UpdatedAt = DateTime.UtcNow;
 
                     await _context.SaveChangesAsync();
-                    var key = $"Component_{id}".GetHashCode().ToString();
-                    await _distributedCache.RemoveAsync(key);
+                    var rawKey = $"Component_{id}";
+                    var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+                    await _cacheService.RemoveAsync(key);
                     break;
                 }
                 catch (DbUpdateConcurrencyException)
@@ -232,25 +222,21 @@ namespace PCShop_Backend.Service
 
             await _context.SaveChangesAsync();
 
-            var key = $"Component_{id}".GetHashCode().ToString();
-            await _distributedCache.RemoveAsync(key);
+            var rawKey = $"Component_{id}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(key);
         }
 
         // ==================ComponentCategory==================\\
         public async Task<Paging<ComponentCategoriesDto>> getComponentCategories(GridifyQuery query)
         {
-            var key = $"ComponentCategories_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
+            var rawKey = $"ComponentCategories_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
-            var options = new DistributedCacheEntryOptions
+            var cachedData = await _cacheService.GetAsync<Paging<ComponentCategoriesDto>>(key);
+            if(cachedData != null)
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                SlidingExpiration = TimeSpan.FromMinutes(5)
-            };
-
-            var cachedData = await _distributedCache.GetStringAsync(key);
-            if(!string.IsNullOrEmpty(cachedData))
-            {
-                return JsonConvert.DeserializeObject<Paging<ComponentCategoriesDto>>(cachedData)!;
+                return cachedData;
             }
 
             var categoriesQuery = _context.ComponentCategories
@@ -262,7 +248,7 @@ namespace PCShop_Backend.Service
                 });
             var result = await categoriesQuery.GridifyAsync(query);
 
-            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
+            await _cacheService.SetAsync(key, result);
 
             return result;
         }
@@ -277,18 +263,13 @@ namespace PCShop_Backend.Service
         }
         public async Task<ComponentCategoriesDto?> getComponentCategoryById(int categoryId)
         {
-            var key = $"ComponentCategory_{categoryId}".GetHashCode().ToString();
+            var rawKey = $"ComponentCategory_{categoryId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
-            var options = new DistributedCacheEntryOptions
+            var cachedData = await _cacheService.GetAsync<ComponentCategoriesDto>(key);
+            if(cachedData != null)
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                SlidingExpiration = TimeSpan.FromMinutes(5)
-            };
-
-            var cachedData = await _distributedCache.GetStringAsync(key);
-            if(!string.IsNullOrEmpty(cachedData))
-            {
-                return JsonConvert.DeserializeObject<ComponentCategoriesDto>(cachedData)!;
+                return cachedData;
             }
 
             var category = await _context.ComponentCategories.FindAsync(categoryId);
@@ -304,7 +285,7 @@ namespace PCShop_Backend.Service
                 Description = category.Description
             };
 
-            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(categoryDto), options);
+            await _cacheService.SetAsync(key, categoryDto);
 
             return categoryDto;
         }
@@ -318,8 +299,9 @@ namespace PCShop_Backend.Service
             category.CategoryName = updateComponentCategoryDto.CategoryName;
             category.Description = updateComponentCategoryDto.Description;
 
-            var key = $"ComponentCategory_{componentId}".GetHashCode().ToString();
-            await _distributedCache.RemoveAsync(key);
+            var rawKey = $"ComponentCategory_{componentId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(key);
 
             await _context.SaveChangesAsync();
         }
@@ -333,8 +315,9 @@ namespace PCShop_Backend.Service
             _context.ComponentCategories.Remove(category);
             await _context.SaveChangesAsync();
 
-            var key = $"ComponentCategory_{categoryId}".GetHashCode().ToString();
-            await _distributedCache.RemoveAsync(key);
+            var rawKey = $"ComponentCategory_{categoryId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(key);
         }
 
         // ==================ComponentSpec==================\\
@@ -351,18 +334,13 @@ namespace PCShop_Backend.Service
         }
         public async Task<Paging<ComponentSpecsDto>> getComponentSpecs(GridifyQuery query)
         {
-            var key = $"ComponentSpecs_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
+            var rawKey = $"ComponentSpecs_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
-            var options = new DistributedCacheEntryOptions
+            var cachedData = await _cacheService.GetAsync<Paging<ComponentSpecsDto>>(key);
+            if(cachedData != null)
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                SlidingExpiration = TimeSpan.FromMinutes(5)
-            };
-
-            var cachedData = await _distributedCache.GetStringAsync(key);
-            if(!string.IsNullOrEmpty(cachedData))
-            {
-                return JsonConvert.DeserializeObject<Paging<ComponentSpecsDto>>(cachedData)!;
+                return cachedData;
             }
 
             var specsQuery = _context.ComponentSpecs
@@ -376,24 +354,19 @@ namespace PCShop_Backend.Service
                 });
             var result = await specsQuery.GridifyAsync(query);
 
-            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
+            await _cacheService.SetAsync(key, result);
 
             return result;
         }
         public async Task<ComponentSpecsDto> getComponentSpecById(int specId)
         {
-            var key = $"ComponentSpec_{specId}".GetHashCode().ToString();
+            var rawKey = $"ComponentSpec_{specId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
-            var options = new DistributedCacheEntryOptions
+            var cachedData = await _cacheService.GetAsync<ComponentSpecsDto>(key);
+            if(cachedData != null)
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                SlidingExpiration = TimeSpan.FromMinutes(5)
-            };
-
-            var cachedData = await _distributedCache.GetStringAsync(key);
-            if(!string.IsNullOrEmpty(cachedData))
-            {
-                return JsonConvert.DeserializeObject<ComponentSpecsDto>(cachedData)!;
+                return cachedData;
             }
 
             var spec = await _context.ComponentSpecs.FindAsync(specId);
@@ -411,7 +384,7 @@ namespace PCShop_Backend.Service
                 DisplayOrder = spec.DisplayOrder
             };
 
-            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(specDto), options);
+            await _cacheService.SetAsync(key, specDto);
 
             return specDto;
         }
@@ -427,8 +400,9 @@ namespace PCShop_Backend.Service
             spec.DisplayOrder = updateComponentSpecDto.DisplayOrder;
             await _context.SaveChangesAsync();
 
-            var key = $"ComponentSpec_{specId}".GetHashCode().ToString();
-            await _distributedCache.RemoveAsync(key);
+            var rawKey = $"ComponentSpec_{specId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(key);
         }
         public async Task deleteComponentSpecs(int specId)
         {
@@ -440,8 +414,9 @@ namespace PCShop_Backend.Service
             _context.ComponentSpecs.Remove(spec);
             await _context.SaveChangesAsync();
 
-            var key = $"ComponentSpec_{specId}".GetHashCode().ToString();
-            await _distributedCache.RemoveAsync(key);
+            var rawKey = $"ComponentSpec_{specId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(key);
         }
 
         // ==================PC Build==================\\
@@ -449,20 +424,9 @@ namespace PCShop_Backend.Service
         public async Task<Paging<PcBuildDto>> getPcBuilds(GridifyQuery query)
         {
             //Tao key cho cache bằng cách kết hợp các tham số truy vấn và băm chúng để tránh key quá dài
-            var Rawkey = $"PcBuilds_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}";
-            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Rawkey)));
+            var rawKey = $"PcBuilds_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
-            //var options = new DistributedCacheEntryOptions
-            //{
-            //    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-            //    SlidingExpiration = TimeSpan.FromMinutes(5)
-            //};
-
-            //var cachedData = await _distributedCache.GetStringAsync(key);
-            //if(!string.IsNullOrEmpty(cachedData))
-            //{
-            //    return JsonConvert.DeserializeObject<Paging<PcBuildDto>>(cachedData)!;
-            //}
             var cachedData = await _cacheService.GetAsync<Paging<PcBuildDto>>(key);
             if(cachedData != null)
             {
@@ -499,24 +463,18 @@ namespace PCShop_Backend.Service
                 });
             var result = await build.GridifyAsync(query);
 
-            //await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
             await _cacheService.SetAsync(key,result);
             return result;
         }
         public async Task<PcBuildDto> getPcbuildById(int buildId)
         {
-            var key = $"PcBuild_{buildId}".GetHashCode().ToString();
+            var rawKey = $"PcBuild_{buildId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
-            var options = new DistributedCacheEntryOptions
+            var cachedData = await _cacheService.GetAsync<PcBuildDto>(key);
+            if(cachedData != null)
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                SlidingExpiration = TimeSpan.FromMinutes(5)
-            };
-
-            var cachedData = await _distributedCache.GetStringAsync(key);
-            if(!string.IsNullOrEmpty(cachedData))
-            {
-                return JsonConvert.DeserializeObject<PcBuildDto>(cachedData)!;
+                return cachedData;
             }
 
             var build = await _context.Pcbuilds
@@ -555,7 +513,7 @@ namespace PCShop_Backend.Service
                 TotalPrice = components.Sum(c => c.Subtotal),
             };
 
-            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(buildDto), options);
+            await _cacheService.SetAsync(key, buildDto);
 
             return buildDto;
         }
@@ -675,10 +633,11 @@ namespace PCShop_Backend.Service
 
             await _context.SaveChangesAsync();
 
-            var key = $"PcBuild_{buildId}".GetHashCode().ToString();
-            await _distributedCache.RemoveAsync(key);
+            var rawKey = $"PcBuild_{buildId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(key);
         }
-        public Task deletePcbuild(int buildId)
+        public async Task deletePcbuild(int buildId)
         {
             var pcBuild = _context.Pcbuilds.Find(buildId);
             if (pcBuild == null)
@@ -687,10 +646,11 @@ namespace PCShop_Backend.Service
             }
             _context.Pcbuilds.Remove(pcBuild);
 
-            var key = $"PcBuild_{buildId}".GetHashCode().ToString();
-            _distributedCache.RemoveAsync(key);
+            var rawKey = $"PcBuild_{buildId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(key);
 
-            return _context.SaveChangesAsync();
+            await _context.SaveChangesAsync();
         }
 
         
