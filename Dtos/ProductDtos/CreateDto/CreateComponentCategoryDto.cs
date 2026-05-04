@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace PCShop_Backend.Dtos.ProductDtos.CreateDto
 {

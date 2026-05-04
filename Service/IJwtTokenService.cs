@@ -1,4 +1,4 @@
-﻿using PCShop_Backend.Models;
+using PCShop_Backend.Models;
 
 namespace PCShop_Backend.Service
 {

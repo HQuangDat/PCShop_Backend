@@ -6,7 +6,7 @@ namespace PCShop_Backend.Dtos
     public class PcBuildDto
     {
         public int BuildId { get; set; }
-        public string BuildName { get; set; }
+        public required string BuildName { get; set; }
         public string? Description { get; set; }
         public bool IsPublic { get; set; }
 
@@ -19,7 +19,7 @@ namespace PCShop_Backend.Dtos
         public DateTime? UpdatedAt { get; set; }
 
         // Components with full details
-        public List<PcBuildComponentDto> Components { get; set; }
+        public required List<PcBuildComponentDto> Components { get; set; }
 
         // Calculated fields
         public decimal TotalPrice { get; set; }

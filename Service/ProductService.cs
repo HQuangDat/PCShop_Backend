@@ -1,4 +1,4 @@
-﻿using Gridify;
+using Gridify;
 using Gridify.EntityFramework;
 using Humanizer;
 using Microsoft.AspNetCore.Authorization;
@@ -42,7 +42,7 @@ namespace PCShop_Backend.Service
             var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
             var cachedData = await _cacheService.GetAsync<Paging<ComponentDto>>(key);
-            if(cachedData != null)
+            if (cachedData != null)
             {
                 return cachedData;
             }
@@ -93,7 +93,7 @@ namespace PCShop_Backend.Service
                 CreatedAt = DateTime.UtcNow
             };
             await _context.Components.AddAsync(component);
-            await  _context.SaveChangesAsync();
+            await _context.SaveChangesAsync();
         }
         public async Task<ComponentDto> getComponentById(int id)
         {
@@ -101,7 +101,7 @@ namespace PCShop_Backend.Service
             var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
             var cachedData = await _cacheService.GetAsync<ComponentDto>(key);
-            if(cachedData != null)
+            if (cachedData != null)
             {
                 return cachedData;
             }
@@ -199,10 +199,10 @@ namespace PCShop_Backend.Service
         }
         public async Task deleteComponent(int id)
         {
-            var component =  await _context.Components.FindAsync(id);
+            var component = await _context.Components.FindAsync(id);
             if (component == null)
                 throw new Exceptions.NotFoundException($"Component with ID {id} not found");
-            
+
             var isInUsePcBuild = await _context.PcbuildComponents
                 .AnyAsync(pc => pc.ComponentId == id);
 
@@ -212,7 +212,7 @@ namespace PCShop_Backend.Service
                                ri.Receipt.Status != "Cancelled" &&
                                ri.Receipt.Status != "Delivered");
 
-            if(isInUsePcBuild || isUsedInActiveReceipts)
+            if (isInUsePcBuild || isUsedInActiveReceipts)
             {
                 throw new ConflictException($"Cannot delete component with ID {id} because it is in use.");
             }
@@ -234,7 +234,7 @@ namespace PCShop_Backend.Service
             var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
             var cachedData = await _cacheService.GetAsync<Paging<ComponentCategoriesDto>>(key);
-            if(cachedData != null)
+            if (cachedData != null)
             {
                 return cachedData;
             }
@@ -267,7 +267,7 @@ namespace PCShop_Backend.Service
             var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
             var cachedData = await _cacheService.GetAsync<ComponentCategoriesDto>(key);
-            if(cachedData != null)
+            if (cachedData != null)
             {
                 return cachedData;
             }
@@ -338,7 +338,7 @@ namespace PCShop_Backend.Service
             var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
             var cachedData = await _cacheService.GetAsync<Paging<ComponentSpecsDto>>(key);
-            if(cachedData != null)
+            if (cachedData != null)
             {
                 return cachedData;
             }
@@ -364,13 +364,13 @@ namespace PCShop_Backend.Service
             var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
             var cachedData = await _cacheService.GetAsync<ComponentSpecsDto>(key);
-            if(cachedData != null)
+            if (cachedData != null)
             {
                 return cachedData;
             }
 
             var spec = await _context.ComponentSpecs.FindAsync(specId);
-            if(spec == null)
+            if (spec == null)
             {
                 throw new Exceptions.NotFoundException($"Component Spec with ID {specId} not found");
             }
@@ -428,17 +428,17 @@ namespace PCShop_Backend.Service
             var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
             var cachedData = await _cacheService.GetAsync<Paging<PcBuildDto>>(key);
-            if(cachedData != null)
+            if (cachedData != null)
             {
                 return cachedData;
             }
 
-            var build =  _context.Pcbuilds
+            var build = _context.Pcbuilds
                 .Include(b => b.CreatedByUser)
                 .Include(b => b.PcbuildComponents)
                     .ThenInclude(bc => bc.Component)
                         .ThenInclude(c => c.Category)
-                .Select(b=> new PcBuildDto
+                .Select(b => new PcBuildDto
                 {
                     BuildId = b.BuildId,
                     BuildName = b.BuildName,
@@ -463,7 +463,7 @@ namespace PCShop_Backend.Service
                 });
             var result = await build.GridifyAsync(query);
 
-            await _cacheService.SetAsync(key,result);
+            await _cacheService.SetAsync(key, result);
             return result;
         }
         public async Task<PcBuildDto> getPcbuildById(int buildId)
@@ -472,7 +472,7 @@ namespace PCShop_Backend.Service
             var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
             var cachedData = await _cacheService.GetAsync<PcBuildDto>(key);
-            if(cachedData != null)
+            if (cachedData != null)
             {
                 return cachedData;
             }
@@ -526,16 +526,16 @@ namespace PCShop_Backend.Service
             var components = await _context.Components.Where(c => componentsId
                 .Contains(c.ComponentId) && c.IsActive == true)
                 .ToListAsync();
-            if(components.Count != componentsId.Distinct().Count())
+            if (components.Count != componentsId.Distinct().Count())
             {
                 throw new ValidationException("One or more components are invalid or inactive");
             }
 
             //check quantity of each component
-            foreach(var item in createPcBuildDto.Components)
+            foreach (var item in createPcBuildDto.Components)
             {
                 var componentInBuild = components.First(c => c.ComponentId == item.ComponentId);
-                if(componentInBuild.StockQuantity < item.Quantity)
+                if (componentInBuild.StockQuantity < item.Quantity)
                 {
                     throw new ValidationException(
                             $"Component '{componentInBuild.Name}' has insufficient stock. " +
@@ -572,7 +572,7 @@ namespace PCShop_Backend.Service
             int.TryParse(userIdClaims, out var userId);
 
             var build = await _context.Pcbuilds
-                .Include(b => b.PcbuildComponents)  
+                .Include(b => b.PcbuildComponents)
                 .FirstOrDefaultAsync(b => b.BuildId == buildId);
 
             if (build == null)
@@ -653,6 +653,6 @@ namespace PCShop_Backend.Service
             await _context.SaveChangesAsync();
         }
 
-        
+
     }
 }

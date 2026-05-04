@@ -1,4 +1,4 @@
-﻿namespace PCShop_Backend.Dtos.UserDtos.UpdateDto
+namespace PCShop_Backend.Dtos.UserDtos.UpdateDto
 {
     public class ChangePassWordDto
     {

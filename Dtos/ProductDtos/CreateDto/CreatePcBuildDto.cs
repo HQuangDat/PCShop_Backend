@@ -7,7 +7,7 @@ namespace PCShop_Backend.Dtos.ProductDtos.CreateDto
     {
         [Required(ErrorMessage = "Build name is required.")]
         [StringLength(100, MinimumLength = 1, ErrorMessage = "Build name must be between 1 and 100 characters.")]
-        public string BuildName { get; set; }
+        public required string BuildName { get; set; }
 
         [StringLength(500)]
         public string? Description { get; set; }
@@ -16,6 +16,6 @@ namespace PCShop_Backend.Dtos.ProductDtos.CreateDto
 
         [Required(ErrorMessage = "Components are required.")]
         [MinLength(1, ErrorMessage = "Build must have at least one component")]
-        public List<CreatePcBuildComponentDto> Components { get; set; }
+        public required List<CreatePcBuildComponentDto> Components { get; set; }
     }
 }

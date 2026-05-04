@@ -106,7 +106,7 @@ namespace PCShop_Backend.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> RegisterUser([FromBody]RegisterUserDto dto)
+        public async Task<IActionResult> RegisterUser([FromBody] RegisterUserDto dto)
         {
             await _userService.RegisterUser(dto);
             Log.Information("User registered successfully: {Email}", dto.Email);

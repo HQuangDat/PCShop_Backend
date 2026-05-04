@@ -8,7 +8,7 @@ namespace PCShop_Backend.Dtos.ProductDtos.UpdateDto
     {
         [Required(ErrorMessage = "Build name is required.")]
         [StringLength(100, MinimumLength = 1, ErrorMessage = "Build name must be between 1 and 100 characters.")]
-        public string BuildName { get; set; }
+        public required string BuildName { get; set; }
 
         [StringLength(500)]
         public string? Description { get; set; }

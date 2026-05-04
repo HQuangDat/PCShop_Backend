@@ -67,7 +67,7 @@ namespace PCShop_Backend.Service
             }
 
             var role = await _context.Roles.FindAsync(roleId);
-            if(role == null)
+            if (role == null)
             {
                 throw new NotFoundException("Role not found");
             }
@@ -211,7 +211,7 @@ namespace PCShop_Backend.Service
         //Function dang ky tai khoan 
         public async Task RegisterUser(RegisterUserDto dto)
         {
-            if(await _context.Users.AnyAsync(e=>e.Email == dto.Email || e.Username == dto.Username))
+            if (await _context.Users.AnyAsync(e => e.Email == dto.Email || e.Username == dto.Username))
             {
                 throw new ConflictException("Email or Username already exists");
             }
@@ -257,7 +257,7 @@ namespace PCShop_Backend.Service
         {
             var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
             if (existingUser == null)
-            { 
+            {
                 throw new NotFoundException("User not found");
             }
             existingUser.FullName = dto.FullName;

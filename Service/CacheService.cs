@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.Distributed;
 using Newtonsoft.Json;
 using PCShop_Backend.Dtos;
 
@@ -30,7 +30,7 @@ namespace PCShop_Backend.Service
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
                 SlidingExpiration = TimeSpan.FromMinutes(5)
             };
-            
+
             var jsonData = JsonConvert.SerializeObject(value);
 
             await _distributedCache.SetStringAsync(key, jsonData, options);

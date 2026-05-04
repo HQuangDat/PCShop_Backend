@@ -1,4 +1,4 @@
-﻿using PCShop_Backend.Models;
+using PCShop_Backend.Models;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 

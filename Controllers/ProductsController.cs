@@ -123,7 +123,7 @@ namespace PCShop_Backend.Controllers
             Log.Information("Component category updated successfully with ID {CategoryId}", categoryId);
             return Ok(new { message = "Component category updated successfully" });
         }
-    
+
         [HttpDelete("component-category/delete/{categoryId}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteComponentCategory(int categoryId)
@@ -160,7 +160,7 @@ namespace PCShop_Backend.Controllers
             Log.Information("Fetched component spec with ID {SpecId}", specId);
             return Ok(spec);
         }
-        
+
         [HttpPost("component-spec/create")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateComponentSpec([FromBody] CreateComponentSpecDto createComponentSpecDto)

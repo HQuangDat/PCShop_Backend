@@ -36,14 +36,19 @@ namespace PCShop_Backend.Middleware
 
             var response = new { message, statusCode };
 
-            // Log appropriately based on exception type
+            // Log appropriately based on exception type, always include request context
             if (statusCode >= 500)
             {
-                Log.Error(exception, "Unhandled exception: {Message}", exception.Message);
+                Log.Error(exception,
+                    "Unhandled exception on {RequestMethod} {RequestPath}: {ExceptionType} — {Message}",
+                    context.Request.Method, context.Request.Path,
+                    exception.GetType().Name, exception.Message);
             }
             else
             {
-                Log.Warning("{ExceptionType}: {Message}", exception.GetType().Name, exception.Message);
+                Log.Warning(
+                    "{ExceptionType} on {RequestMethod} {RequestPath}: {Message}",
+                    exception.GetType().Name, context.Request.Method, context.Request.Path, exception.Message);
             }
 
             return context.Response.WriteAsJsonAsync(response);

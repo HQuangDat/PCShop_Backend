@@ -32,7 +32,7 @@ namespace PCShop_Backend.Service
         public async Task<Paging<ReceiptDtos>> getReceipts(GridifyQuery query)
         {
             var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
-            
+
             var rawKey = $"Receipts_{userId}_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}";
             var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
@@ -129,7 +129,7 @@ namespace PCShop_Backend.Service
                     UpdatedAt = r.UpdatedAt
                 })
                 .FirstOrDefaultAsync();
-            if(existingReceipt == null)
+            if (existingReceipt == null)
             {
                 throw new NotFoundException("Receipt not found for the user.");
             }
@@ -152,7 +152,7 @@ namespace PCShop_Backend.Service
                 Country = dto.Country,
                 TrackingNumber = dto.TrackingNumber,
                 Notes = dto.Notes,
-                CreatedAt = DateTime.UtcNow            
+                CreatedAt = DateTime.UtcNow
             };
             await _context.Receipts.AddAsync(newReceipt);
             Log.Information($"User with id: {userId} has created a new receipt: {newReceipt.ReceiptId}");
@@ -161,8 +161,8 @@ namespace PCShop_Backend.Service
         public async Task UpdateReceipt(int receiptId, UpdateReceiptDto dto)
         {
             var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
-            var existingReceipt =  _context.Receipts.FirstOrDefault(r => r.ReceiptId == receiptId && r.UserId == userId);
-            if(existingReceipt == null)
+            var existingReceipt = _context.Receipts.FirstOrDefault(r => r.ReceiptId == receiptId && r.UserId == userId);
+            if (existingReceipt == null)
             {
                 throw new NotFoundException("Receipt not found for the user.");
             }
@@ -279,7 +279,7 @@ namespace PCShop_Backend.Service
 
         public async Task UpdateReceiptItem(int receiptId, int receiptItemId, UpdateReceiptItemDto dto)
         {
-            var existingReceiptItem = await _context.ReceiptItems.Where(ri=>ri.ReceiptId == receiptId).FirstOrDefaultAsync(ri => ri.ReceiptItemId == receiptItemId);
+            var existingReceiptItem = await _context.ReceiptItems.Where(ri => ri.ReceiptId == receiptId).FirstOrDefaultAsync(ri => ri.ReceiptItemId == receiptItemId);
             if (existingReceiptItem == null)
             {
                 throw new NotFoundException("Receipt item not found.");
@@ -326,14 +326,14 @@ namespace PCShop_Backend.Service
                 .Where(ri => ri.Receipt.CreatedAt >= startDateTime && ri.Receipt.CreatedAt <= endDateTime)
                 //Kiem tra ComponentId khac null
                 .Where(ri => ri.ComponentId.HasValue)
-                .GroupBy(ri => new { ri.ComponentId, ri.Component.Name }) 
+                .GroupBy(ri => new { ri.ComponentId, ri.Component!.Name })
                 .Select(g => new SalesStatisticDto
                 {
-                    ProductId = g.Key.ComponentId.Value,
+                    ProductId = g.Key.ComponentId!.Value,
                     ProductName = g.Key.Name ?? "Unknown",
                     TotalQuantitySold = g.Sum(ri => ri.Quantity),
                     TotalRevenue = g.Sum(ri => ri.Quantity * ri.UnitPrice),
-                    Date = null 
+                    Date = null
                 })
                 .ToListAsync();
 

@@ -43,7 +43,7 @@ namespace PCShop_Backend.Service
                 Log.Error("User with username: {Username} is not found.", dto.username);
                 throw new NotFoundException("Invalid Username or Password");
             }
-            if(VerifyHashPassword(existUser, existUser.PasswordHash, dto.password) == PasswordVerificationResult.Success)
+            if (VerifyHashPassword(existUser, existUser.PasswordHash, dto.password) == PasswordVerificationResult.Success)
             {
                 var token = _jwtTokenService.GenerateToken(existUser);
                 Log.Information("User {Username} logged in successfully.", dto.username);
@@ -79,12 +79,12 @@ namespace PCShop_Backend.Service
             // Check for existing valid token
             if (existingReset != null)
             {
-                if(existingReset.ExpireDate > DateTime.UtcNow)
+                if (existingReset.ExpireDate > DateTime.UtcNow)
                 {
                     Log.Error("A valid reset token already exists");
                     throw new ArgumentException("A valid reset token already exists. Please check your email.");
                 }
-                else if(existingReset.ExpireDate <= DateTime.UtcNow)
+                else if (existingReset.ExpireDate <= DateTime.UtcNow)
                 {
                     // Remove expired token
                     _context.PasswordResets.Remove(existingReset);

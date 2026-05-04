@@ -1,4 +1,4 @@
-﻿using Gridify;
+using Gridify;
 using Gridify.EntityFramework;
 using Microsoft.EntityFrameworkCore;
 using PCShop_Backend.Data;
@@ -32,7 +32,7 @@ namespace PCShop_Backend.Service
         public async Task<Paging<CartItemsDtos>> getCartItems(GridifyQuery query)
         {
             var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
-            
+
             var rawKey = $"CartItems_{userId}_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}";
             var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 

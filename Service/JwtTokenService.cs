@@ -1,4 +1,4 @@
-﻿using Humanizer;
+using Humanizer;
 using Microsoft.IdentityModel.Tokens;
 using PCShop_Backend.Models;
 using Serilog;

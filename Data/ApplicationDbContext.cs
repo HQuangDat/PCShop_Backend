@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using PCShop_Backend.Models;
 
 namespace PCShop_Backend.Data

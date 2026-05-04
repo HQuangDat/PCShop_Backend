@@ -74,7 +74,7 @@ namespace PCShop_Backend.Service
         //Lay ticket cua user dang nhap
         public async Task<Paging<SupportTicketDto>> getTicketsForUser(GridifyQuery gridifyQuery)
         {
-            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);            
+            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
             // Khoi tao key cho cache du lieu
             var rawKey = $"Tickets_{userId}_{gridifyQuery.Page}_{gridifyQuery.PageSize}_{gridifyQuery.Filter}_{gridifyQuery.OrderBy}";
             var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
@@ -171,13 +171,13 @@ namespace PCShop_Backend.Service
                 CreatedAt = DateTime.UtcNow,
                 AssignedToUserId = null
             };
-            
+
             await _context.Tickets.AddAsync(newTicket);
             await _context.SaveChangesAsync();
         }
         public async Task UpdateSupportTicket(int ticketId, UpdateSupportTicketDto dto)
         {
-            var existingTicket =  await _context.Tickets.FindAsync(ticketId);
+            var existingTicket = await _context.Tickets.FindAsync(ticketId);
             if (existingTicket == null)
             {
                 Log.Information("Ticket with ID {TicketId} not found.", ticketId);
@@ -239,7 +239,7 @@ namespace PCShop_Backend.Service
             return result;
         }
 
-        public async Task AddTicketComment(int ticketId,AddSupportTicketCommentDto dto)
+        public async Task AddTicketComment(int ticketId, AddSupportTicketCommentDto dto)
         {
             //Lay userId tu token dang nhap
             var userIdClaim = _httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -263,7 +263,7 @@ namespace PCShop_Backend.Service
         {
             var existingComment = await _context.TicketComments
                                        .FirstOrDefaultAsync(tc => tc.TicketId == ticketId && tc.CommentId == commentId);
-            if(existingComment == null)
+            if (existingComment == null)
             {
                 Log.Error("Comment with ID {CommentId} for Ticket ID {TicketId} not found.", commentId, ticketId);
                 throw new NotFoundException("Comment not found");
@@ -280,7 +280,7 @@ namespace PCShop_Backend.Service
 
         public async Task DeleteTicketComment(int ticketId, int commentId)
         {
-            var existingComment =  _context.TicketComments
+            var existingComment = _context.TicketComments
                                        .FirstOrDefault(tc => tc.TicketId == ticketId && tc.CommentId == commentId);
             if (existingComment == null)
             {

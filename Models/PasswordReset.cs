@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace PCShop_Backend.Models
 {
@@ -7,8 +7,8 @@ namespace PCShop_Backend.Models
         public int Id { get; set; }
 
         [EmailAddress(ErrorMessage = "You must enter a valid email address!")]
-        public string Email { get; set; }
-        public string Token { get; set; }
+        public required string Email { get; set; }
+        public required string Token { get; set; }
         public DateTime ExpireDate { get; set; }
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace PCShop_Backend.Dtos
+namespace PCShop_Backend.Dtos
 {
     public class ComponentSpecDto
     {

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -9,6 +9,7 @@ using PCShop_Backend.Middleware;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using Serilog.Events;
+using Serilog.Sinks.SystemConsole.Themes;
 using System.Text;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
@@ -19,18 +20,39 @@ using Hangfire.SqlServer;
 // Configure Serilog BEFORE creating the WebApplication builder
 var loggerConfig = new LoggerConfiguration()
     .MinimumLevel.Debug()
+    // Suppress noisy framework internals — only surface warnings and above
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
+    .MinimumLevel.Override("System", LogEventLevel.Warning)
+    .MinimumLevel.Override("Hangfire", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .Enrich.WithMachineName()
+    .Enrich.WithThreadId()
+    .Enrich.WithProperty("Application", "PCShop_Backend")
+    // General log: INFO and above, 31-day retention, 50 MB per file
     .WriteTo.File(
         path: "logs/log-.txt",
         restrictedToMinimumLevel: LogEventLevel.Information,
         rollingInterval: RollingInterval.Day,
-        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz}] [{Level:u3}] {Message:lj}{NewLine}{Exception}")
-    .Enrich.FromLogContext()
-    .Enrich.WithProperty("Application", "PCShop_Backend");
+        retainedFileCountLimit: 31,
+        fileSizeLimitBytes: 50_000_000,
+        rollOnFileSizeLimit: true,
+        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz}] [{Level:u3}] [req:{RequestId}] [{SourceContext}] {Message:lj}{NewLine}{Exception}")
+    // Error log: ERROR and above with full property dump for post-mortem, 90-day retention
+    .WriteTo.File(
+        path: "logs/errors-.txt",
+        restrictedToMinimumLevel: LogEventLevel.Error,
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 90,
+        fileSizeLimitBytes: 100_000_000,
+        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz}] [{Level:u3}] [req:{RequestId}] [machine:{MachineName}] [thread:{ThreadId}] [{SourceContext}] {Message:lj}{NewLine}{Properties:j}{NewLine}{Exception}");
 
-// Chỉ thêm Console logging khi debug
 #if DEBUG
+// Colored console output only in debug builds
 loggerConfig.WriteTo.Console(
-    outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz}] [{Level:u3}] {Message:lj}{NewLine}{Exception}");
+    theme: AnsiConsoleTheme.Code,
+    outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext:l} | {Message:lj}{NewLine}{Exception}",
+    restrictedToMinimumLevel: LogEventLevel.Debug);
 #endif
 
 Log.Logger = loggerConfig.CreateLogger();
@@ -161,7 +183,7 @@ try
     {
         options.AddPolicy("AllowFrontend", policy =>
         {
-            policy.WithOrigins("http://localhost:5173") 
+            policy.WithOrigins("http://localhost:5173")
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
@@ -175,13 +197,32 @@ try
     // Configure the HTTP request pipeline.
     //if (app.Environment.IsDevelopment())
     //{
-        Log.Information("Running in Development environment");
-        app.UseSwagger();
-        app.UseSwaggerUI();
+    Log.Information("Running in Development environment");
+    app.UseSwagger();
+    app.UseSwaggerUI();
     //}
 
     app.UseHttpsRedirection();
-    
+
+    // Log every HTTP request/response with method, path, status code and elapsed ms.
+    // Level is automatically elevated to Warning on 4xx and Error on 5xx/exceptions.
+    app.UseSerilogRequestLogging(options =>
+    {
+        options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} => {StatusCode} in {Elapsed:0.0000}ms";
+        options.GetLevel = (httpContext, elapsed, ex) =>
+            ex != null || httpContext.Response.StatusCode >= 500 ? LogEventLevel.Error :
+            httpContext.Response.StatusCode >= 400 ? LogEventLevel.Warning :
+            LogEventLevel.Information;
+        options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+        {
+            diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
+            diagnosticContext.Set("UserAgent", httpContext.Request.Headers.UserAgent.ToString());
+            var userId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId is not null)
+                diagnosticContext.Set("UserId", userId);
+        };
+    });
+
     app.UseMiddleware<SecurityHeadersMiddleware>();
     app.UseRateLimiter();
 

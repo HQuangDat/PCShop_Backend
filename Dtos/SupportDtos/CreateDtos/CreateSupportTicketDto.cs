@@ -1,4 +1,4 @@
-﻿namespace PCShop_Backend.Dtos.SupportDtos.CreateDtos
+namespace PCShop_Backend.Dtos.SupportDtos.CreateDtos
 {
     public class CreateSupportTicketDto
     {

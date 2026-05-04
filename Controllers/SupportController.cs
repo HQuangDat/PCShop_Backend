@@ -74,7 +74,7 @@ namespace PCShop_Backend.Controllers
         //--------- Additional endpoints for support ticket comments can be added here
 
         [HttpGet("{id}/ticketComments")]
-        public async Task<IActionResult> GetAllTicketComments(int ticketId, [FromQuery]GridifyQuery query)
+        public async Task<IActionResult> GetAllTicketComments(int ticketId, [FromQuery] GridifyQuery query)
         {
             await _supportService.getTicketComments(ticketId, query);
             return Ok();
