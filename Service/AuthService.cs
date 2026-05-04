@@ -38,22 +38,21 @@ namespace PCShop_Backend.Service
             var existUser = await _context.Users
                 .Include(u => u.Role)
                 .FirstOrDefaultAsync(u => u.Username == dto.username);
-            if (existUser == null)
+
+            // Always run password verification to prevent timing-based user enumeration.
+            // Use a dummy user and a known-invalid hash when the account does not exist.
+            var userToVerify = existUser ?? new User { PasswordHash = "invalid-hash-placeholder" };
+            var result = VerifyHashPassword(userToVerify, userToVerify.PasswordHash, dto.password);
+
+            if (existUser == null || result != PasswordVerificationResult.Success)
             {
-                Log.Error("User with username: {Username} is not found.", dto.username);
-                throw new NotFoundException("Invalid Username or Password");
+                Log.Warning("Failed login attempt.");
+                throw new ArgumentException("Invalid username or password.");
             }
-            if (VerifyHashPassword(existUser, existUser.PasswordHash, dto.password) == PasswordVerificationResult.Success)
-            {
-                var token = _jwtTokenService.GenerateToken(existUser);
-                Log.Information("User {Username} logged in successfully.", dto.username);
-                return token;
-            }
-            else
-            {
-                Log.Error("Invalid password for user: {Username}.", dto.username);
-                throw new ArgumentException("Invalid password");
-            }
+
+            var token = _jwtTokenService.GenerateToken(existUser);
+            Log.Information("User ID {UserId} logged in successfully.", existUser.UserId);
+            return token;
         }
 
         // Hàm kiểm tra mật khẩu đã hash
@@ -124,7 +123,7 @@ namespace PCShop_Backend.Service
             // Check if token is expired
             if (passwordReset.ExpireDate < DateTime.UtcNow)
             {
-                Log.Error("Password reset token has expired for email: {Email}", passwordReset.Email);
+                Log.Error("Password reset token has expired.");
                 _context.PasswordResets.Remove(passwordReset);
                 await _context.SaveChangesAsync();
                 throw new ArgumentException("Reset token has expired. Please request a new password reset.");
@@ -149,7 +148,7 @@ namespace PCShop_Backend.Service
 
             await _context.SaveChangesAsync();
 
-            Log.Information("Password reset successfully for user: {Email}", passwordReset.Email);
+            Log.Information("Password reset successfully for user ID {UserId}", user.UserId);
         }
     }
 }

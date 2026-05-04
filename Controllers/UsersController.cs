@@ -109,7 +109,7 @@ namespace PCShop_Backend.Controllers
         public async Task<IActionResult> RegisterUser([FromBody] RegisterUserDto dto)
         {
             await _userService.RegisterUser(dto);
-            Log.Information("User registered successfully: {Email}", dto.Email);
+            Log.Information("User registered successfully");
             return Ok(new { message = "User registered successfully!" });
         }
 

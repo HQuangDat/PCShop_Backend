@@ -232,7 +232,7 @@ namespace PCShop_Backend.Service
             };
             await _context.Users.AddAsync(user);
             await _context.SaveChangesAsync();
-            Log.Information($"New user registered: {dto.Username}");
+            Log.Information("New user registered with ID {UserId}", user.UserId);
         }
 
         //Function xoa tai khoan nguoi dung

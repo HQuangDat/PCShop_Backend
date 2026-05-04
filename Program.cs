@@ -243,8 +243,8 @@ try
             {
                 new BasicAuthAuthorizationUser
                 {
-                    Login = builder.Configuration["Hangfire:User"] ?? "admin",
-                    PasswordClear = builder.Configuration["Hangfire:Password"] ?? "admin123"
+                    Login = builder.Configuration["Hangfire:User"] ?? throw new InvalidOperationException("Hangfire:User is not configured."),
+                    PasswordClear = builder.Configuration["Hangfire:Password"] ?? throw new InvalidOperationException("Hangfire:Password is not configured.")
                 }
             }
         }) }
