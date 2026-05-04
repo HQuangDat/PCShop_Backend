@@ -1,8 +1,6 @@
 using Gridify;
 using Gridify.EntityFramework;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Distributed;
-using Newtonsoft.Json;
 using PCShop_Backend.Data;
 using PCShop_Backend.Dtos.SupportDtos;
 using PCShop_Backend.Dtos.SupportDtos.CreateDtos;
@@ -10,8 +8,9 @@ using PCShop_Backend.Dtos.SupportDtos.UpdateDtos;
 using PCShop_Backend.Exceptions;
 using PCShop_Backend.Models;
 using Serilog;
-using System.ComponentModel.Design;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace PCShop_Backend.Service
 {
@@ -19,13 +18,13 @@ namespace PCShop_Backend.Service
     {
         private readonly ApplicationDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly IDistributedCache _distributedCache;
+        private readonly ICacheService _cacheService;
 
-        public SupportService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, IDistributedCache distributedCache)
+        public SupportService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, ICacheService cacheService)
         {
             _context = context;
             _httpContextAccessor = httpContextAccessor;
-            _distributedCache = distributedCache;
+            _cacheService = cacheService;
         }
 
         //--------Support Tickets--------//
@@ -33,19 +32,14 @@ namespace PCShop_Backend.Service
         public async Task<Paging<SupportTicketDto>> getTickets(GridifyQuery gridifyQuery)
         {
             // Khoi tao key cho cache du lieu
-            var key = $"Tickets_{gridifyQuery.Page}_{gridifyQuery.PageSize}_{gridifyQuery.Filter}_{gridifyQuery.OrderBy}".GetHashCode().ToString();
-
-            var options = new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                SlidingExpiration = TimeSpan.FromMinutes(5)
-            };
+            var rawKey = $"Tickets_{gridifyQuery.Page}_{gridifyQuery.PageSize}_{gridifyQuery.Filter}_{gridifyQuery.OrderBy}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
             // Kiem tra cache co du lieu chua
-            var cachedData = await _distributedCache.GetStringAsync(key);
-            if(!string.IsNullOrEmpty(cachedData))
+            var cachedData = await _cacheService.GetAsync<Paging<SupportTicketDto>>(key);
+            if (cachedData != null)
             {
-                return JsonConvert.DeserializeObject<Paging<SupportTicketDto>>(cachedData)!;
+                return cachedData;
             }
 
             // Neu chua co, truy van du lieu tu database
@@ -72,7 +66,7 @@ namespace PCShop_Backend.Service
             var result = await query.GridifyAsync(gridifyQuery);
             // Luu ket qua vao cache
 
-            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
+            await _cacheService.SetAsync(key, result);
 
             return result;
         }
@@ -82,19 +76,14 @@ namespace PCShop_Backend.Service
         {
             var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);            
             // Khoi tao key cho cache du lieu
-            var key = $"Tickets_{userId}_{gridifyQuery.Page}_{gridifyQuery.PageSize}_{gridifyQuery.Filter}_{gridifyQuery.OrderBy}".GetHashCode().ToString();
-
-            var options = new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                SlidingExpiration = TimeSpan.FromMinutes(5)
-            };
+            var rawKey = $"Tickets_{userId}_{gridifyQuery.Page}_{gridifyQuery.PageSize}_{gridifyQuery.Filter}_{gridifyQuery.OrderBy}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
             // Kiem tra cache co du lieu chua
-            var cachedData = await _distributedCache.GetStringAsync(key);
-            if (!string.IsNullOrEmpty(cachedData))
+            var cachedData = await _cacheService.GetAsync<Paging<SupportTicketDto>>(key);
+            if (cachedData != null)
             {
-                return JsonConvert.DeserializeObject<Paging<SupportTicketDto>>(cachedData)!;
+                return cachedData;
             }
 
             // Neu chua co, truy van du lieu tu database
@@ -121,25 +110,20 @@ namespace PCShop_Backend.Service
             var result = await query.GridifyAsync(gridifyQuery);
             // Luu ket qua vao cache
 
-            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
+            await _cacheService.SetAsync(key, result);
 
             return result;
         }
 
         public async Task<SupportTicketDto> getTicketById(int ticketId)
         {
-            var key = $"Ticket_{ticketId}".GetHashCode().ToString();
+            var rawKey = $"Ticket_{ticketId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
-            var options = new DistributedCacheEntryOptions
+            var cachedData = await _cacheService.GetAsync<SupportTicketDto>(key);
+            if (cachedData != null)
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                SlidingExpiration = TimeSpan.FromMinutes(5)
-            };
-
-            var cachedData = await _distributedCache.GetStringAsync(key);
-            if(!string.IsNullOrEmpty(cachedData))
-            {
-                return JsonConvert.DeserializeObject<SupportTicketDto>(cachedData)!;
+                return cachedData;
             }
 
             var ticket = await _context.Tickets
@@ -168,7 +152,7 @@ namespace PCShop_Backend.Service
                 throw new NotFoundException("Ticket not found");
             }
 
-            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(ticket), options);
+            await _cacheService.SetAsync(key, ticket);
 
             return ticket;
         }
@@ -206,8 +190,9 @@ namespace PCShop_Backend.Service
             _context.Tickets.Update(existingTicket);
             await _context.SaveChangesAsync();
 
-            var key = $"Ticket_{ticketId}".GetHashCode().ToString();
-            await _distributedCache.RemoveAsync(key);
+            var rawKey = $"Ticket_{ticketId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(key);
         }
 
         public async Task DeleteSupportTicket(int ticketId)
@@ -220,25 +205,21 @@ namespace PCShop_Backend.Service
             _context.Tickets.Remove(ticket);
             await _context.SaveChangesAsync();
 
-            var key = $"Ticket_{ticketId}".GetHashCode().ToString();
-            await _distributedCache.RemoveAsync(key);
+            var rawKey = $"Ticket_{ticketId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(key);
         }
 
         //--------Ticket Comments--------//
         public async Task<Paging<SupportTicketCommentDto>> getTicketComments(int ticketId, GridifyQuery gridifyQuery)
         {
-            var key = $"TicketComments_{ticketId}_{gridifyQuery.Page}_{gridifyQuery.PageSize}_{gridifyQuery.Filter}_{gridifyQuery.OrderBy}".GetHashCode().ToString();
+            var rawKey = $"TicketComments_{ticketId}_{gridifyQuery.Page}_{gridifyQuery.PageSize}_{gridifyQuery.Filter}_{gridifyQuery.OrderBy}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
-            var options = new DistributedCacheEntryOptions
+            var cachedData = await _cacheService.GetAsync<Paging<SupportTicketCommentDto>>(key);
+            if (cachedData != null)
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                SlidingExpiration = TimeSpan.FromMinutes(5)
-            };
-
-            var cachedData = await _distributedCache.GetStringAsync(key);
-            if(!string.IsNullOrEmpty(cachedData))
-            {
-                return JsonConvert.DeserializeObject<Paging<SupportTicketCommentDto>>(cachedData)!;
+                return cachedData;
             }
 
             var CommentsQuery = _context.TicketComments
@@ -253,7 +234,7 @@ namespace PCShop_Backend.Service
                                 });
             var result = await CommentsQuery.GridifyAsync(gridifyQuery);
 
-            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
+            await _cacheService.SetAsync(key, result);
 
             return result;
         }
@@ -274,8 +255,9 @@ namespace PCShop_Backend.Service
             await _context.SaveChangesAsync();
 
             //Xoa cache de cap nhat du lieu moi
-            var key = $"Ticket_{ticketId}".GetHashCode().ToString();
-            await _distributedCache.RemoveAsync(key);
+            var rawKey = $"Ticket_{ticketId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(key);
         }
         public async Task UpdateTicketComment(int ticketId, int commentId, UpdateSupportTicketCommentDto dto)
         {
@@ -291,8 +273,9 @@ namespace PCShop_Backend.Service
             _context.TicketComments.Update(existingComment);
             await _context.SaveChangesAsync();
 
-            var key = $"Ticket_{ticketId}".GetHashCode().ToString();
-            await _distributedCache.RemoveAsync(key);
+            var rawKey = $"Ticket_{ticketId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(key);
         }
 
         public async Task DeleteTicketComment(int ticketId, int commentId)
@@ -307,8 +290,9 @@ namespace PCShop_Backend.Service
 
             _context.TicketComments.Remove(existingComment);
 
-            var key = $"Ticket_{ticketId}".GetHashCode().ToString();
-            await _distributedCache.RemoveAsync(key);
+            var rawKey = $"Ticket_{ticketId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(key);
 
             await _context.SaveChangesAsync();
         }

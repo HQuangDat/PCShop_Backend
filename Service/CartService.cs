@@ -1,8 +1,6 @@
 ﻿using Gridify;
 using Gridify.EntityFramework;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Distributed;
-using Newtonsoft.Json;
 using PCShop_Backend.Data;
 using PCShop_Backend.Dtos.CartDtos;
 using PCShop_Backend.Dtos.CartDtos.CreateDtos;
@@ -11,6 +9,8 @@ using PCShop_Backend.Exceptions;
 using PCShop_Backend.Models;
 using Serilog;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace PCShop_Backend.Service
 {
@@ -18,13 +18,13 @@ namespace PCShop_Backend.Service
     {
         private readonly ApplicationDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly IDistributedCache _distributedCache;
+        private readonly ICacheService _cacheService;
 
-        public CartService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, IDistributedCache distributedCache)
+        public CartService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, ICacheService cacheService)
         {
             _context = context;
             _httpContextAccessor = httpContextAccessor;
-            _distributedCache = distributedCache;
+            _cacheService = cacheService;
         }
 
         // ========== Cart Items ==========
@@ -32,18 +32,15 @@ namespace PCShop_Backend.Service
         public async Task<Paging<CartItemsDtos>> getCartItems(GridifyQuery query)
         {
             var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
-            var key = $"CartItems_{userId}_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
+            
+            var rawKey = $"CartItems_{userId}_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
-            var options = new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                SlidingExpiration = TimeSpan.FromMinutes(5)
-            };
             //check if data is cached
-            var cachedData = await _distributedCache.GetStringAsync(key);
-            if (!string.IsNullOrEmpty(cachedData))
+            var cachedData = await _cacheService.GetAsync<Paging<CartItemsDtos>>(key);
+            if (cachedData != null)
             {
-                return JsonConvert.DeserializeObject<Paging<CartItemsDtos>>(cachedData)!;
+                return cachedData;
             }
 
             var cartitems = await _context.CartItems
@@ -61,7 +58,7 @@ namespace PCShop_Backend.Service
                 .GridifyAsync(query);
 
             //cache the data
-            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(cartitems), options);
+            await _cacheService.SetAsync(key, cartitems);
 
             return cartitems;
         }

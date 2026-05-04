@@ -2,8 +2,6 @@ using Gridify;
 using Gridify.EntityFramework;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Distributed;
-using Newtonsoft.Json;
 using PCShop_Backend.Data;
 using PCShop_Backend.Dtos.UserDtos;
 using PCShop_Backend.Dtos.UserDtos.CreateDto;
@@ -11,6 +9,8 @@ using PCShop_Backend.Dtos.UserDtos.UpdateDto;
 using PCShop_Backend.Exceptions;
 using PCShop_Backend.Models;
 using Serilog;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace PCShop_Backend.Service
 {
@@ -18,31 +18,26 @@ namespace PCShop_Backend.Service
     {
         private readonly ApplicationDbContext _context;
         private readonly IPasswordHasher<User> _passwordHasher;
-        private readonly IDistributedCache _distributedCache;
+        private readonly ICacheService _cacheService;
 
-        public UserService(ApplicationDbContext context, IPasswordHasher<User> passwordHasher, IDistributedCache distributedCache)
+        public UserService(ApplicationDbContext context, IPasswordHasher<User> passwordHasher, ICacheService cacheService)
         {
             _context = context;
             _passwordHasher = passwordHasher;
-            _distributedCache = distributedCache;
+            _cacheService = cacheService;
         }
 
         //------------Role service----------------
         //Function lay danh sach vai tro co phan trang va loc
         public async Task<Paging<RoleDto>> getRoles(GridifyQuery query)
         {
-            var key = $"Roles_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}".GetHashCode().ToString();
+            var rawKey = $"Roles_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
-            var options = new DistributedCacheEntryOptions
+            var cachedData = await _cacheService.GetAsync<Paging<RoleDto>>(key);
+            if (cachedData != null)
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                SlidingExpiration = TimeSpan.FromMinutes(5)
-            };
-
-            var cachedData = await _distributedCache.GetStringAsync(key);
-            if(!string.IsNullOrEmpty(cachedData))
-            {
-                return JsonConvert.DeserializeObject<Paging<RoleDto>>(cachedData)!;
+                return cachedData;
             }
 
             var rolesQuery = _context.Roles.Select(role => new RoleDto
@@ -54,7 +49,7 @@ namespace PCShop_Backend.Service
 
             var result = await rolesQuery.GridifyAsync(query);
 
-            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
+            await _cacheService.SetAsync(key, result);
 
             return result;
         }
@@ -62,18 +57,13 @@ namespace PCShop_Backend.Service
         //Function lay thong tin vai tro theo ID
         public async Task<RoleDto> getRoleById(int roleId)
         {
-            var key = $"Role_{roleId}".GetHashCode().ToString();
+            var rawKey = $"Role_{roleId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
-            var options = new DistributedCacheEntryOptions
+            var cachedData = await _cacheService.GetAsync<RoleDto>(key);
+            if (cachedData != null)
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                SlidingExpiration = TimeSpan.FromMinutes(5)
-            };
-
-            var cachedData = await _distributedCache.GetStringAsync(key);
-            if(!string.IsNullOrEmpty(cachedData))
-            {
-                return JsonConvert.DeserializeObject<RoleDto>(cachedData)!;
+                return cachedData;
             }
 
             var role = await _context.Roles.FindAsync(roleId);
@@ -89,7 +79,7 @@ namespace PCShop_Backend.Service
                 Description = role.Description!
             };
 
-            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(roleDto), options);
+            await _cacheService.SetAsync(key, roleDto);
 
             return roleDto;
         }
@@ -117,8 +107,9 @@ namespace PCShop_Backend.Service
             _context.Roles.Remove(existingRole);
             await _context.SaveChangesAsync();
 
-            var key = $"Role_{roleId}".GetHashCode().ToString();
-            await _distributedCache.RemoveAsync(key);
+            var rawKey = $"Role_{roleId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(key);
         }
 
         //Function update vai tro
@@ -134,8 +125,9 @@ namespace PCShop_Backend.Service
 
             await _context.SaveChangesAsync();
 
-            var key = $"Role_{roleId}".GetHashCode().ToString();
-            await _distributedCache.RemoveAsync(key);
+            var rawKey = $"Role_{roleId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(key);
         }
 
         //------------User service----------------
@@ -143,18 +135,13 @@ namespace PCShop_Backend.Service
         //Function lay danh sach nguoi dung co phan trang va loc
         public async Task<Paging<UserDto>> getUsers(GridifyQuery gridifyQuery)
         {
-            var key = $"Users_{gridifyQuery.Page}_{gridifyQuery.PageSize}_{gridifyQuery.Filter}_{gridifyQuery.OrderBy}".GetHashCode().ToString();
+            var rawKey = $"Users_{gridifyQuery.Page}_{gridifyQuery.PageSize}_{gridifyQuery.Filter}_{gridifyQuery.OrderBy}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
-            var options = new DistributedCacheEntryOptions
+            var cachedData = await _cacheService.GetAsync<Paging<UserDto>>(key);
+            if (cachedData != null)
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                SlidingExpiration = TimeSpan.FromMinutes(5)
-            };
-
-            var cachedData = await _distributedCache.GetStringAsync(key);
-            if(!string.IsNullOrEmpty(cachedData))
-            {
-                return JsonConvert.DeserializeObject<Paging<UserDto>>(cachedData)!;
+                return cachedData;
             }
 
             var UserQuery = _context.Users.Select(user => new UserDto
@@ -175,7 +162,7 @@ namespace PCShop_Backend.Service
 
             var result = await UserQuery.GridifyAsync(gridifyQuery);
 
-            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(result), options);
+            await _cacheService.SetAsync(key, result);
 
             return result;
         }
@@ -183,18 +170,13 @@ namespace PCShop_Backend.Service
         //Function lay thong tin nguoi dung theo ID
         public async Task<UserDto> GetUserById(int id)
         {
-            var key = $"User_{id}".GetHashCode().ToString();
+            var rawKey = $"User_{id}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
-            var options = new DistributedCacheEntryOptions
+            var cachedData = await _cacheService.GetAsync<UserDto>(key);
+            if (cachedData != null)
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                SlidingExpiration = TimeSpan.FromMinutes(5)
-            };
-
-            var cachedData = await _distributedCache.GetStringAsync(key);
-            if(!string.IsNullOrEmpty(cachedData))
-            {
-                return JsonConvert.DeserializeObject<UserDto>(cachedData)!;
+                return cachedData;
             }
 
             var existingUser = await _context.Users
@@ -221,7 +203,7 @@ namespace PCShop_Backend.Service
                 throw new NotFoundException("User not found");
             }
 
-            await _distributedCache.SetStringAsync(key, JsonConvert.SerializeObject(existingUser), options);
+            await _cacheService.SetAsync(key, existingUser);
 
             return existingUser;
         }
@@ -264,8 +246,9 @@ namespace PCShop_Backend.Service
             _context.Users.Remove(existingUser);
             await _context.SaveChangesAsync();
 
-            var key = $"User_{userId}".GetHashCode().ToString();
-            await _distributedCache.RemoveAsync(key);
+            var rawKey = $"User_{userId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(key);
         }
 
 
@@ -285,8 +268,9 @@ namespace PCShop_Backend.Service
 
             await _context.SaveChangesAsync();
 
-            var key = $"User_{userId}".GetHashCode().ToString();
-            await _distributedCache.RemoveAsync(key);
+            var rawKey = $"User_{userId}";
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(key);
         }
     }
 }
