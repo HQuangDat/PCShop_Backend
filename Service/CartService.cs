@@ -1,12 +1,12 @@
 using Gridify;
 using Gridify.EntityFramework;
-using Microsoft.EntityFrameworkCore;
-using PCShop_Backend.Data;
 using PCShop_Backend.Dtos.CartDtos;
 using PCShop_Backend.Dtos.CartDtos.CreateDtos;
 using PCShop_Backend.Dtos.CartDtos.UpdateDtos;
 using PCShop_Backend.Exceptions;
+using PCShop_Backend.Interfaces;
 using PCShop_Backend.Models;
+using PCShop_Backend.Repositories.Interfaces;
 using Serilog;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -16,36 +16,30 @@ namespace PCShop_Backend.Service
 {
     public class CartService : ICartService
     {
-        private readonly ApplicationDbContext _context;
+        private readonly ICartRepository _cartRepository;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ICacheService _cacheService;
 
-        public CartService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, ICacheService cacheService)
+        public CartService(ICartRepository cartRepository, IHttpContextAccessor httpContextAccessor, ICacheService cacheService)
         {
-            _context = context;
+            _cartRepository = cartRepository;
             _httpContextAccessor = httpContextAccessor;
             _cacheService = cacheService;
         }
 
-        // ========== Cart Items ==========
-
         public async Task<Paging<CartItemsDtos>> getCartItems(GridifyQuery query)
         {
-            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+            int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
 
             var rawKey = $"CartItems_{userId}_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}";
             var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
-            //check if data is cached
             var cachedData = await _cacheService.GetAsync<Paging<CartItemsDtos>>(key);
             if (cachedData != null)
-            {
                 return cachedData;
-            }
 
-            var cartitems = await _context.CartItems
-                .Include(pcb => pcb.Build)
-                .Include(ci => ci.Component)
+            var result = await _cartRepository.QueryCartItems()
+                .Where(ci => ci.UserId == userId)
                 .Select(ci => new CartItemsDtos
                 {
                     CartItemId = ci.CartItemId,
@@ -54,29 +48,22 @@ namespace PCShop_Backend.Service
                     BuildId = ci.BuildId,
                     Quantity = ci.Quantity,
                     AddedAt = ci.AddedAt
-                }).Where(ci => ci.UserId == userId)
-                .GridifyAsync(query);
+                }).GridifyAsync(query);
 
-            //cache the data
-            await _cacheService.SetAsync(key, cartitems);
-
-            return cartitems;
+            await _cacheService.SetAsync(key, result);
+            return result;
         }
 
         public async Task AddToCart(AddItemToCartDtos dto)
         {
-            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+            int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
 
-            var component = await _context.Components.FirstOrDefaultAsync(c => c.ComponentId == dto.ComponentId);
+            var component = await _cartRepository.GetComponentByIdAsync(dto.ComponentId);
             if (component == null)
-            {
                 throw new NotFoundException("Component not found.");
-            }
-            // Check stock availability
-            if (component!.StockQuantity < dto.Quantity)
-            {
+
+            if (component.StockQuantity < dto.Quantity)
                 throw new OutOfStockException("Not enough stock for the requested component.");
-            }
 
             var addItem = new CartItem
             {
@@ -87,43 +74,43 @@ namespace PCShop_Backend.Service
                 AddedAt = DateTime.UtcNow
             };
 
-            await _context.CartItems.AddAsync(addItem);
-            Log.Information($"User with id: {userId} has added item: {addItem.CartItemId} to cart");
-            await _context.SaveChangesAsync();
+            await _cartRepository.AddCartItemAsync(addItem);
+            await _cartRepository.SaveChangesAsync();
+            Log.Information("User {UserId} added item to cart", userId);
         }
 
         public async Task UpdateCartItems(int cartItemId, UpdateCartItemsDto dto)
         {
-            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
-            var existingCartItem = await _context.CartItems.FirstOrDefaultAsync(ci => ci.CartItemId == cartItemId && ci.UserId == userId);
+            int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+
+            var existingCartItem = await _cartRepository.GetCartItemByIdAndUserAsync(cartItemId, userId);
             if (existingCartItem == null)
-            {
                 throw new NotFoundException("Cart item not found for the user.");
-            }
+
             existingCartItem.Quantity = dto.Quantity;
-            await _context.SaveChangesAsync();
-            Log.Information($"User with id: {userId} has updated Cart: {existingCartItem.CartItemId}");
+            await _cartRepository.SaveChangesAsync();
+            Log.Information("User {UserId} updated cart item {CartItemId}", userId, existingCartItem.CartItemId);
         }
 
         public async Task RemoveFromCart(int cartItemId)
         {
-            var existingCartItem = await _context.CartItems.FirstOrDefaultAsync(ci => ci.CartItemId == cartItemId);
+            var existingCartItem = await _cartRepository.GetCartItemByIdAsync(cartItemId);
             if (existingCartItem == null)
-            {
                 throw new NotFoundException("Cart item not found.");
-            }
-            _context.CartItems.Remove(existingCartItem);
-            Log.Information($"Cart item with id: {existingCartItem.CartItemId} has been removed from cart");
-            await _context.SaveChangesAsync();
+
+            _cartRepository.RemoveCartItem(existingCartItem);
+            await _cartRepository.SaveChangesAsync();
+            Log.Information("Cart item {CartItemId} removed from cart", existingCartItem.CartItemId);
         }
 
         public async Task ClearCart()
         {
-            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
-            var userCartItems = await _context.CartItems.Where(ci => ci.UserId == userId).ToListAsync();
-            _context.CartItems.RemoveRange(userCartItems);
-            Log.Information($"User with id: {userId} has cleared their cart");
-            await _context.SaveChangesAsync();
+            int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+
+            var userCartItems = await _cartRepository.GetUserCartItemsAsync(userId);
+            _cartRepository.RemoveCartItems(userCartItems);
+            await _cartRepository.SaveChangesAsync();
+            Log.Information("User {UserId} cleared their cart", userId);
         }
     }
 }

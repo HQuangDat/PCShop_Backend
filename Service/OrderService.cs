@@ -1,12 +1,13 @@
 using Gridify;
 using Gridify.EntityFramework;
 using Microsoft.EntityFrameworkCore;
-using PCShop_Backend.Data;
 using PCShop_Backend.Dtos.OrderDtos;
 using PCShop_Backend.Dtos.OrderDtos.CreateDtos;
 using PCShop_Backend.Dtos.OrderDtos.UpdateDtos;
 using PCShop_Backend.Exceptions;
+using PCShop_Backend.Interfaces;
 using PCShop_Backend.Models;
+using PCShop_Backend.Repositories.Interfaces;
 using Serilog;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -16,33 +17,30 @@ namespace PCShop_Backend.Service
 {
     public class OrderService : IOrderService
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IOrderRepository _orderRepository;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ICacheService _cacheService;
 
-        public OrderService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, ICacheService cacheService)
+        public OrderService(IOrderRepository orderRepository, IHttpContextAccessor httpContextAccessor, ICacheService cacheService)
         {
-            _context = context;
+            _orderRepository = orderRepository;
             _httpContextAccessor = httpContextAccessor;
             _cacheService = cacheService;
         }
 
-
-        // ========== Receipts Section ==========
+        // ========== Receipts ==========
         public async Task<Paging<ReceiptDtos>> getReceipts(GridifyQuery query)
         {
-            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+            int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
 
             var rawKey = $"Receipts_{userId}_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}";
             var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
             var cachedData = await _cacheService.GetAsync<Paging<ReceiptDtos>>(key);
             if (cachedData != null)
-            {
                 return cachedData;
-            }
 
-            var receipts = await _context.Receipts
+            var result = await _orderRepository.QueryReceipts()
                 .Where(r => r.UserId == userId)
                 .Select(r => new ReceiptDtos
                 {
@@ -58,13 +56,12 @@ namespace PCShop_Backend.Service
                     Notes = r.Notes,
                     CreatedAt = r.CreatedAt,
                     UpdatedAt = r.UpdatedAt
-                })
-                .GridifyAsync(query);
+                }).GridifyAsync(query);
 
-            await _cacheService.SetAsync(key, receipts);
-
-            return receipts;
+            await _cacheService.SetAsync(key, result);
+            return result;
         }
+
         public async Task<Paging<ReceiptDtos>> getAllReceiptsByAdmin(GridifyQuery query)
         {
             var rawKey = $"Receipts_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}";
@@ -72,11 +69,9 @@ namespace PCShop_Backend.Service
 
             var cachedData = await _cacheService.GetAsync<Paging<ReceiptDtos>>(key);
             if (cachedData != null)
-            {
                 return cachedData;
-            }
 
-            var receipts = await _context.Receipts
+            var result = await _orderRepository.QueryReceipts()
                 .Select(r => new ReceiptDtos
                 {
                     ReceiptId = r.ReceiptId,
@@ -91,27 +86,24 @@ namespace PCShop_Backend.Service
                     Notes = r.Notes,
                     CreatedAt = r.CreatedAt,
                     UpdatedAt = r.UpdatedAt
-                })
-                .GridifyAsync(query);
+                }).GridifyAsync(query);
 
-            await _cacheService.SetAsync(key, receipts);
-
-            return receipts;
+            await _cacheService.SetAsync(key, result);
+            return result;
         }
+
         public async Task<ReceiptDtos> getReceiptById(int receiptId)
         {
-            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+            int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
 
             var rawKey = $"Receipt_{userId}_{receiptId}";
             var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
             var cachedData = await _cacheService.GetAsync<ReceiptDtos>(key);
             if (cachedData != null)
-            {
                 return cachedData;
-            }
 
-            var existingReceipt = await _context.Receipts
+            var existingReceipt = await _orderRepository.QueryReceipts()
                 .Where(r => r.ReceiptId == receiptId && r.UserId == userId)
                 .Select(r => new ReceiptDtos
                 {
@@ -129,18 +121,18 @@ namespace PCShop_Backend.Service
                     UpdatedAt = r.UpdatedAt
                 })
                 .FirstOrDefaultAsync();
+
             if (existingReceipt == null)
-            {
                 throw new NotFoundException("Receipt not found for the user.");
-            }
 
             await _cacheService.SetAsync(key, existingReceipt);
-
-            return existingReceipt!;
+            return existingReceipt;
         }
+
         public async Task CreateReceipt(CreateReceiptDto dto)
         {
-            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+            int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+
             var newReceipt = new Receipt
             {
                 UserId = userId,
@@ -154,47 +146,47 @@ namespace PCShop_Backend.Service
                 Notes = dto.Notes,
                 CreatedAt = DateTime.UtcNow
             };
-            await _context.Receipts.AddAsync(newReceipt);
-            Log.Information($"User with id: {userId} has created a new receipt: {newReceipt.ReceiptId}");
-            await _context.SaveChangesAsync();
+            await _orderRepository.AddReceiptAsync(newReceipt);
+            await _orderRepository.SaveChangesAsync();
+            Log.Information("User {UserId} created receipt {ReceiptId}", userId, newReceipt.ReceiptId);
         }
+
         public async Task UpdateReceipt(int receiptId, UpdateReceiptDto dto)
         {
-            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
-            var existingReceipt = _context.Receipts.FirstOrDefault(r => r.ReceiptId == receiptId && r.UserId == userId);
+            int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+
+            var existingReceipt = await _orderRepository.GetReceiptByIdAndUserAsync(receiptId, userId);
             if (existingReceipt == null)
-            {
                 throw new NotFoundException("Receipt not found for the user.");
-            }
+
             existingReceipt.TotalAmount = dto.TotalAmount;
             existingReceipt.Status = dto.Status;
             existingReceipt.UpdatedAt = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
+            await _orderRepository.SaveChangesAsync();
 
             var rawKey = $"Receipt_{userId}_{receiptId}";
-            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
-            await _cacheService.RemoveAsync(key);
+            var cacheKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(cacheKey);
         }
 
         public async Task DeleteReceipt(int receiptId)
         {
-            var userIdClaim = int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
-            var existingReceipt = await _context.Receipts.FirstOrDefaultAsync(r => r.ReceiptId == receiptId && r.UserId == userId);
+            int.TryParse(_httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+
+            var existingReceipt = await _orderRepository.GetReceiptByIdAndUserAsync(receiptId, userId);
             if (existingReceipt == null)
-            {
                 throw new NotFoundException("Receipt not found for the user.");
-            }
-            _context.Receipts.Remove(existingReceipt);
-            Log.Information($"User with id: {userId} has deleted receipt: {existingReceipt.ReceiptId}");
-            await _context.SaveChangesAsync();
+
+            _orderRepository.RemoveReceipt(existingReceipt);
+            await _orderRepository.SaveChangesAsync();
+            Log.Information("User {UserId} deleted receipt {ReceiptId}", userId, existingReceipt.ReceiptId);
 
             var rawKey = $"Receipt_{userId}_{receiptId}";
-            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
-            await _cacheService.RemoveAsync(key);
+            var cacheKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(cacheKey);
         }
 
-        // ========== Receipt Items Section ==========
+        // ========== Receipt Items ==========
         public async Task<Paging<ReceiptItemsDto>> getReceiptItems(int receiptId, GridifyQuery query)
         {
             var rawKey = $"ReceiptItems_{receiptId}_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}";
@@ -202,11 +194,9 @@ namespace PCShop_Backend.Service
 
             var cachedData = await _cacheService.GetAsync<Paging<ReceiptItemsDto>>(key);
             if (cachedData != null)
-            {
                 return cachedData;
-            }
 
-            var receiptItems = await _context.ReceiptItems
+            var result = await _orderRepository.QueryReceiptItems()
                 .Where(ri => ri.ReceiptId == receiptId)
                 .Select(ri => new ReceiptItemsDto
                 {
@@ -217,13 +207,12 @@ namespace PCShop_Backend.Service
                     ItemName = ri.ItemName,
                     Quantity = ri.Quantity,
                     UnitPrice = ri.UnitPrice
-                })
-                .GridifyAsync(query);
+                }).GridifyAsync(query);
 
-            await _cacheService.SetAsync(key, receiptItems);
-
-            return receiptItems;
+            await _cacheService.SetAsync(key, result);
+            return result;
         }
+
         public async Task<ReceiptItemsDto> GetReceiptItemById(int receiptId, int receiptItemId)
         {
             var rawKey = $"ReceiptItem_{receiptItemId}";
@@ -231,11 +220,9 @@ namespace PCShop_Backend.Service
 
             var cachedData = await _cacheService.GetAsync<ReceiptItemsDto>(key);
             if (cachedData != null)
-            {
                 return cachedData;
-            }
 
-            var existingReceiptItem = await _context.ReceiptItems
+            var existingReceiptItem = await _orderRepository.QueryReceiptItems()
                 .Where(ri => ri.ReceiptItemId == receiptItemId && ri.ReceiptId == receiptId)
                 .Select(ri => new ReceiptItemsDto
                 {
@@ -248,19 +235,17 @@ namespace PCShop_Backend.Service
                     UnitPrice = ri.UnitPrice
                 })
                 .FirstOrDefaultAsync();
+
             if (existingReceiptItem == null)
-            {
                 throw new NotFoundException("Receipt item not found.");
-            }
 
             await _cacheService.SetAsync(key, existingReceiptItem);
-
-            return existingReceiptItem!;
+            return existingReceiptItem;
         }
 
         public async Task CreateReceiptItem(int receiptId, CreateReceiptItemDto dto)
         {
-            var newReceiptItems = new List<ReceiptItem>
+            await _orderRepository.AddReceiptItemsAsync(new[]
             {
                 new ReceiptItem
                 {
@@ -271,48 +256,44 @@ namespace PCShop_Backend.Service
                     Quantity = dto.Quantity,
                     UnitPrice = dto.UnitPrice
                 }
-            };
-            await _context.ReceiptItems.AddRangeAsync(newReceiptItems);
-            Log.Information($"A new receipt items has been created");
-            await _context.SaveChangesAsync();
+            });
+            await _orderRepository.SaveChangesAsync();
+            Log.Information("Receipt item created for receipt {ReceiptId}", receiptId);
         }
 
         public async Task UpdateReceiptItem(int receiptId, int receiptItemId, UpdateReceiptItemDto dto)
         {
-            var existingReceiptItem = await _context.ReceiptItems.Where(ri => ri.ReceiptId == receiptId).FirstOrDefaultAsync(ri => ri.ReceiptItemId == receiptItemId);
+            var existingReceiptItem = await _orderRepository.GetReceiptItemAsync(receiptId, receiptItemId);
             if (existingReceiptItem == null)
-            {
                 throw new NotFoundException("Receipt item not found.");
-            }
+
             existingReceiptItem.ReceiptId = dto.ReceiptId;
             existingReceiptItem.ComponentId = dto.ComponentId;
             existingReceiptItem.BuildId = dto.BuildId;
             existingReceiptItem.ItemName = dto.ItemName;
             existingReceiptItem.Quantity = dto.Quantity;
             existingReceiptItem.UnitPrice = dto.UnitPrice;
-            Log.Information($"Receipt item with id: {existingReceiptItem.ReceiptItemId} has been updated");
-            await _context.SaveChangesAsync();
+            await _orderRepository.SaveChangesAsync();
+            Log.Information("Receipt item {ReceiptItemId} updated", existingReceiptItem.ReceiptItemId);
 
             var rawKey = $"ReceiptItem_{receiptItemId}";
-            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
-            await _cacheService.RemoveAsync(key);
+            var cacheKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(cacheKey);
         }
+
         public async Task DeleteReceiptItem(int receiptId, int receiptItemId)
         {
-            var existingReceiptItem = await _context.ReceiptItems
-                .Where(ri => ri.ReceiptId == receiptId)
-                .FirstOrDefaultAsync(ri => ri.ReceiptItemId == receiptItemId);
+            var existingReceiptItem = await _orderRepository.GetReceiptItemAsync(receiptId, receiptItemId);
             if (existingReceiptItem == null)
-            {
                 throw new NotFoundException("Receipt item not found.");
-            }
-            _context.ReceiptItems.Remove(existingReceiptItem);
-            Log.Information($"Receipt item with id: {existingReceiptItem.ReceiptItemId} has been deleted");
-            await _context.SaveChangesAsync();
+
+            _orderRepository.RemoveReceiptItem(existingReceiptItem);
+            await _orderRepository.SaveChangesAsync();
+            Log.Information("Receipt item {ReceiptItemId} deleted", existingReceiptItem.ReceiptItemId);
 
             var rawKey = $"ReceiptItem_{receiptItemId}";
-            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
-            await _cacheService.RemoveAsync(key);
+            var cacheKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(cacheKey);
         }
 
         // ========== Sales Statistics ==========
@@ -321,27 +302,14 @@ namespace PCShop_Backend.Service
             var startDateTime = startDate.ToDateTime(TimeOnly.MinValue);
             var endDateTime = endDate.ToDateTime(TimeOnly.MaxValue);
 
-            // Query kiem tra ReceiptItems trong khoang thoi gian
-            var salesStats = await _context.ReceiptItems
-                .Where(ri => ri.Receipt.CreatedAt >= startDateTime && ri.Receipt.CreatedAt <= endDateTime)
-                //Kiem tra ComponentId khac null
-                .Where(ri => ri.ComponentId.HasValue)
-                .GroupBy(ri => new { ri.ComponentId, ri.Component!.Name })
-                .Select(g => new SalesStatisticDto
-                {
-                    ProductId = g.Key.ComponentId!.Value,
-                    ProductName = g.Key.Name ?? "Unknown",
-                    TotalQuantitySold = g.Sum(ri => ri.Quantity),
-                    TotalRevenue = g.Sum(ri => ri.Quantity * ri.UnitPrice),
-                    Date = null
-                })
-                .ToListAsync();
+            var salesStats = await _orderRepository.GetSalesStatisticsAsync(startDateTime, endDateTime);
 
             if (!salesStats.Any())
             {
                 Log.Information("No receipts found in the given date range.");
                 throw new NotFoundException("No receipts found in the given date range.");
             }
+
             return salesStats;
         }
     }

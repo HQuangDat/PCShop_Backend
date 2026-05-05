@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using PCShop_Backend.Dtos.UserDtos.CreateDto;
 using PCShop_Backend.Dtos.UserDtos.UpdateDto;
-using PCShop_Backend.Service;
+using PCShop_Backend.Interfaces;
 using PCShop_Backend.Exceptions;
 using Serilog;
 using System.Runtime.CompilerServices;

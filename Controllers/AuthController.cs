@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using PCShop_Backend.Dtos.AuthDtos;
-using PCShop_Backend.Service;
+using PCShop_Backend.Interfaces;
 
 namespace PCShop_Backend.Controllers
 {

@@ -1,5 +1,6 @@
 using Humanizer;
 using Microsoft.IdentityModel.Tokens;
+using PCShop_Backend.Interfaces;
 using PCShop_Backend.Models;
 using Serilog;
 using System.IdentityModel.Tokens.Jwt;

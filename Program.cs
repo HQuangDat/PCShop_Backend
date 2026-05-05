@@ -3,7 +3,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PCShop_Backend.Data;
+using PCShop_Backend.Interfaces;
 using PCShop_Backend.Models;
+using PCShop_Backend.Repositories;
+using PCShop_Backend.Repositories.Interfaces;
 using PCShop_Backend.Service;
 using PCShop_Backend.Middleware;
 using Microsoft.OpenApi.Models;
@@ -102,6 +105,13 @@ try
 
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
         options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+    builder.Services.AddScoped<IComponentRepository, ComponentRepository>();
+    builder.Services.AddScoped<IUserRepository, UserRepository>();
+    builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+    builder.Services.AddScoped<ICartRepository, CartRepository>();
+    builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+    builder.Services.AddScoped<ISupportRepository, SupportRepository>();
 
     builder.Services.AddScoped<IProductService, ProductService>();
     builder.Services.AddScoped<IUserService, UserService>();

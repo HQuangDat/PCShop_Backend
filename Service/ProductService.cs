@@ -1,19 +1,13 @@
 using Gridify;
 using Gridify.EntityFramework;
-using Humanizer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Distributed;
-using Microsoft.Identity.Client;
-using Newtonsoft.Json;
-using OpenQA.Selenium;
-using PCShop_Backend.Data;
 using PCShop_Backend.Dtos;
 using PCShop_Backend.Dtos.ProductDtos.CreateDto;
 using PCShop_Backend.Dtos.ProductDtos.UpdateDto;
 using PCShop_Backend.Exceptions;
+using PCShop_Backend.Interfaces;
 using PCShop_Backend.Models;
-using System.ComponentModel;
+using PCShop_Backend.Repositories.Interfaces;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -23,13 +17,13 @@ namespace PCShop_Backend.Service
 {
     public class ProductService : IProductService
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IComponentRepository _componentRepository;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ICacheService _cacheService;
 
-        public ProductService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, ICacheService cacheService)
+        public ProductService(IComponentRepository componentRepository, IHttpContextAccessor httpContextAccessor, ICacheService cacheService)
         {
-            _context = context;
+            _componentRepository = componentRepository;
             _httpContextAccessor = httpContextAccessor;
             _cacheService = cacheService;
         }
@@ -37,19 +31,14 @@ namespace PCShop_Backend.Service
         // ==================Component==================\\
         public async Task<Paging<ComponentDto>> getComponents(GridifyQuery query)
         {
-            //Tao key cho cache
             var rawKey = $"Components_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}";
             var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
             var cachedData = await _cacheService.GetAsync<Paging<ComponentDto>>(key);
             if (cachedData != null)
-            {
                 return cachedData;
-            }
-            //if not cached, query the database
-            var componentsQuery = await _context.Components
-                .Include(ct => ct.Category)
-                .Include(sp => sp.ComponentSpecs)
+
+            var result = await _componentRepository.QueryComponents()
                 .Select(c => new ComponentDto
                 {
                     ComponentId = c.ComponentId,
@@ -68,33 +57,13 @@ namespace PCShop_Backend.Service
                     }).ToList()
                 }).GridifyAsync(query);
 
-            if (componentsQuery == null)
-            {
-                throw new Exceptions.NotFoundException("No components found");
-            }
+            if (result == null)
+                throw new NotFoundException("No components found");
 
-            //cached that data
-            await _cacheService.SetAsync(key, componentsQuery);
+            await _cacheService.SetAsync(key, result);
+            return result;
+        }
 
-            return componentsQuery;
-        }
-        public async Task createComponent(createComponentDto createComponentDto)
-        {
-            var component = new Models.Component
-            {
-                Name = createComponentDto.Name,
-                CategoryId = createComponentDto.CategoryId,
-                Brand = createComponentDto.Brand,
-                Price = createComponentDto.Price,
-                StockQuantity = createComponentDto.StockQuantity,
-                ImageUrl = createComponentDto.ImageUrl,
-                IsActive = createComponentDto.IsActive ?? true,
-                Description = createComponentDto.Description,
-                CreatedAt = DateTime.UtcNow
-            };
-            await _context.Components.AddAsync(component);
-            await _context.SaveChangesAsync();
-        }
         public async Task<ComponentDto> getComponentById(int id)
         {
             var rawKey = $"Component_{id}";
@@ -102,21 +71,13 @@ namespace PCShop_Backend.Service
 
             var cachedData = await _cacheService.GetAsync<ComponentDto>(key);
             if (cachedData != null)
-            {
                 return cachedData;
-            }
 
-            var component = await _context.Components
-                .Include(c => c.Category)
-                .Include(c => c.ComponentSpecs)
-                .FirstOrDefaultAsync(c => c.ComponentId == id);
-
+            var component = await _componentRepository.GetByIdAsync(id);
             if (component == null)
-            {
-                throw new Exceptions.NotFoundException($"Component with ID {id} not found");
-            }
+                throw new NotFoundException($"Component with ID {id} not found");
 
-            var componentDto = new ComponentDto
+            var dto = new ComponentDto
             {
                 ComponentId = component.ComponentId,
                 Name = component.Name,
@@ -134,11 +95,29 @@ namespace PCShop_Backend.Service
                 }).ToList()
             };
 
-            await _cacheService.SetAsync(key, componentDto);
-
-            return componentDto;
+            await _cacheService.SetAsync(key, dto);
+            return dto;
         }
-        public async Task updateComponent(int id, updateComponentDto updateComponentDto)
+
+        public async Task createComponent(createComponentDto dto)
+        {
+            var component = new Models.Component
+            {
+                Name = dto.Name,
+                CategoryId = dto.CategoryId,
+                Brand = dto.Brand,
+                Price = dto.Price,
+                StockQuantity = dto.StockQuantity,
+                ImageUrl = dto.ImageUrl,
+                IsActive = dto.IsActive ?? true,
+                Description = dto.Description,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _componentRepository.AddAsync(component);
+            await _componentRepository.SaveChangesAsync();
+        }
+
+        public async Task updateComponent(int id, updateComponentDto dto)
         {
             int countTry = 0;
             int maxRetry = 3;
@@ -146,85 +125,61 @@ namespace PCShop_Backend.Service
             {
                 try
                 {
-                    var component = await _context.Components.FindAsync(id);
-
+                    var component = await _componentRepository.GetByIdAsync(id);
                     if (component == null)
-                    {
-                        throw new Exceptions.NotFoundException($"Component with ID {id} not found");
-                    }
+                        throw new NotFoundException($"Component with ID {id} not found");
 
-                    if (updateComponentDto.Price <= 0)
-                    {
+                    if (dto.Price <= 0)
                         throw new ValidationException("Price must be greater than 0");
-                    }
 
-                    if (updateComponentDto.StockQuantity < 0)
-                    {
+                    if (dto.StockQuantity < 0)
                         throw new ValidationException("Stock quantity cannot be negative");
-                    }
 
-                    var categoryExists = await _context.ComponentCategories
-                        .AnyAsync(c => c.CategoryId == updateComponentDto.CategoryId);
+                    if (!await _componentRepository.CategoryExistsAsync(dto.CategoryId))
+                        throw new ValidationException($"Category with ID {dto.CategoryId} not found");
 
-                    if (!categoryExists)
-                    {
-                        throw new ValidationException($"Category with ID {updateComponentDto.CategoryId} not found");
-                    }
-
-                    component.Name = updateComponentDto.Name;
-                    component.CategoryId = updateComponentDto.CategoryId;
-                    component.Brand = updateComponentDto.Brand;
-                    component.Price = updateComponentDto.Price;
-                    component.StockQuantity = updateComponentDto.StockQuantity;
-                    component.ImageUrl = updateComponentDto.ImageUrl;
-                    component.IsActive = updateComponentDto.IsActive;
-                    component.Description = updateComponentDto.Description;
+                    component.Name = dto.Name;
+                    component.CategoryId = dto.CategoryId;
+                    component.Brand = dto.Brand;
+                    component.Price = dto.Price;
+                    component.StockQuantity = dto.StockQuantity;
+                    component.ImageUrl = dto.ImageUrl;
+                    component.IsActive = dto.IsActive;
+                    component.Description = dto.Description;
                     component.UpdatedAt = DateTime.UtcNow;
 
-                    await _context.SaveChangesAsync();
+                    await _componentRepository.SaveChangesAsync();
+
                     var rawKey = $"Component_{id}";
-                    var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
-                    await _cacheService.RemoveAsync(key);
+                    var cacheKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+                    await _cacheService.RemoveAsync(cacheKey);
                     break;
                 }
                 catch (DbUpdateConcurrencyException)
                 {
                     countTry++;
                     if (countTry == maxRetry)
-                    {
-                        throw new Exception("The record you attempted to edit was modified by another user after you got the original value. The edit operation was canceled.");
-                    }
+                        throw new Exception("The record was modified by another user. The edit operation was canceled.");
                 }
             }
         }
+
         public async Task deleteComponent(int id)
         {
-            var component = await _context.Components.FindAsync(id);
+            var component = await _componentRepository.GetByIdAsync(id);
             if (component == null)
-                throw new Exceptions.NotFoundException($"Component with ID {id} not found");
+                throw new NotFoundException($"Component with ID {id} not found");
 
-            var isInUsePcBuild = await _context.PcbuildComponents
-                .AnyAsync(pc => pc.ComponentId == id);
-
-            var isUsedInActiveReceipts = await _context.ReceiptItems
-                .Include(ri => ri.Receipt)
-                .AnyAsync(ri => ri.ComponentId == id &&
-                               ri.Receipt.Status != "Cancelled" &&
-                               ri.Receipt.Status != "Delivered");
-
-            if (isInUsePcBuild || isUsedInActiveReceipts)
-            {
+            if (await _componentRepository.IsUsedInPcBuildAsync(id) || await _componentRepository.IsUsedInActiveReceiptsAsync(id))
                 throw new ConflictException($"Cannot delete component with ID {id} because it is in use.");
-            }
 
             component.IsActive = false;
             component.UpdatedAt = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
+            await _componentRepository.SaveChangesAsync();
 
             var rawKey = $"Component_{id}";
-            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
-            await _cacheService.RemoveAsync(key);
+            var cacheKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(cacheKey);
         }
 
         // ==================ComponentCategory==================\\
@@ -235,32 +190,20 @@ namespace PCShop_Backend.Service
 
             var cachedData = await _cacheService.GetAsync<Paging<ComponentCategoriesDto>>(key);
             if (cachedData != null)
-            {
                 return cachedData;
-            }
 
-            var categoriesQuery = _context.ComponentCategories
+            var result = await _componentRepository.QueryCategories()
                 .Select(cate => new ComponentCategoriesDto
                 {
                     CategoryId = cate.CategoryId,
                     CategoryName = cate.CategoryName,
                     Description = cate.Description
-                });
-            var result = await categoriesQuery.GridifyAsync(query);
+                }).GridifyAsync(query);
 
             await _cacheService.SetAsync(key, result);
-
             return result;
         }
-        public async Task addComponentCategory(CreateComponentCategoryDto createComponentCategoryDto)
-        {
-            var category = new ComponentCategory
-            {
-                CategoryName = createComponentCategoryDto.CategoryName,
-                Description = createComponentCategoryDto.Description
-            };
-            await _context.ComponentCategories.AddAsync(category);
-        }
+
         public async Task<ComponentCategoriesDto?> getComponentCategoryById(int categoryId)
         {
             var rawKey = $"ComponentCategory_{categoryId}";
@@ -268,70 +211,64 @@ namespace PCShop_Backend.Service
 
             var cachedData = await _cacheService.GetAsync<ComponentCategoriesDto>(key);
             if (cachedData != null)
-            {
                 return cachedData;
-            }
 
-            var category = await _context.ComponentCategories.FindAsync(categoryId);
+            var category = await _componentRepository.GetCategoryByIdAsync(categoryId);
             if (category == null)
-            {
-                throw new Exceptions.NotFoundException($"Category with ID {categoryId} not found");
-            }
+                throw new NotFoundException($"Category with ID {categoryId} not found");
 
-            var categoryDto = new ComponentCategoriesDto
+            var dto = new ComponentCategoriesDto
             {
                 CategoryId = category.CategoryId,
                 CategoryName = category.CategoryName,
                 Description = category.Description
             };
 
-            await _cacheService.SetAsync(key, categoryDto);
-
-            return categoryDto;
+            await _cacheService.SetAsync(key, dto);
+            return dto;
         }
-        public async Task updateComponentCategory(int componentId, UpdateComponentCategoryDto updateComponentCategoryDto)
+
+        public async Task addComponentCategory(CreateComponentCategoryDto dto)
         {
-            var category = _context.ComponentCategories.Find(componentId);
-            if (category == null)
+            var category = new ComponentCategory
             {
-                throw new Exceptions.NotFoundException($"Component with ID {componentId} not found");
-            }
-            category.CategoryName = updateComponentCategoryDto.CategoryName;
-            category.Description = updateComponentCategoryDto.Description;
-
-            var rawKey = $"ComponentCategory_{componentId}";
-            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
-            await _cacheService.RemoveAsync(key);
-
-            await _context.SaveChangesAsync();
+                CategoryName = dto.CategoryName,
+                Description = dto.Description
+            };
+            await _componentRepository.AddCategoryAsync(category);
+            await _componentRepository.SaveChangesAsync();
         }
-        public async Task deleteComponentCategory(int categoryId)
+
+        public async Task updateComponentCategory(int categoryId, UpdateComponentCategoryDto dto)
         {
-            var category = await _context.ComponentCategories.FindAsync(categoryId);
+            var category = await _componentRepository.GetCategoryByIdAsync(categoryId);
             if (category == null)
-            {
-                throw new Exceptions.NotFoundException($"Category with ID {categoryId} not found");
-            }
-            _context.ComponentCategories.Remove(category);
-            await _context.SaveChangesAsync();
+                throw new NotFoundException($"Category with ID {categoryId} not found");
+
+            category.CategoryName = dto.CategoryName;
+            category.Description = dto.Description;
+            await _componentRepository.SaveChangesAsync();
 
             var rawKey = $"ComponentCategory_{categoryId}";
-            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
-            await _cacheService.RemoveAsync(key);
+            var cacheKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(cacheKey);
+        }
+
+        public async Task deleteComponentCategory(int categoryId)
+        {
+            var category = await _componentRepository.GetCategoryByIdAsync(categoryId);
+            if (category == null)
+                throw new NotFoundException($"Category with ID {categoryId} not found");
+
+            _componentRepository.RemoveCategory(category);
+            await _componentRepository.SaveChangesAsync();
+
+            var rawKey = $"ComponentCategory_{categoryId}";
+            var cacheKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(cacheKey);
         }
 
         // ==================ComponentSpec==================\\
-        public async Task addComponentSpecs(CreateComponentSpecDto createComponentSpecDto)
-        {
-            await _context.ComponentSpecs.AddAsync(new ComponentSpec
-            {
-                ComponentId = createComponentSpecDto.ComponentId,
-                SpecKey = createComponentSpecDto.SpecKey,
-                SpecValue = createComponentSpecDto.SpecValue,
-                DisplayOrder = createComponentSpecDto.DisplayOrder
-            });
-            await _context.SaveChangesAsync();
-        }
         public async Task<Paging<ComponentSpecsDto>> getComponentSpecs(GridifyQuery query)
         {
             var rawKey = $"ComponentSpecs_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}";
@@ -339,11 +276,9 @@ namespace PCShop_Backend.Service
 
             var cachedData = await _cacheService.GetAsync<Paging<ComponentSpecsDto>>(key);
             if (cachedData != null)
-            {
                 return cachedData;
-            }
 
-            var specsQuery = _context.ComponentSpecs
+            var result = await _componentRepository.QuerySpecs()
                 .Select(s => new ComponentSpecsDto
                 {
                     SpecId = s.SpecId,
@@ -351,13 +286,12 @@ namespace PCShop_Backend.Service
                     SpecKey = s.SpecKey,
                     SpecValue = s.SpecValue,
                     DisplayOrder = s.DisplayOrder
-                });
-            var result = await specsQuery.GridifyAsync(query);
+                }).GridifyAsync(query);
 
             await _cacheService.SetAsync(key, result);
-
             return result;
         }
+
         public async Task<ComponentSpecsDto> getComponentSpecById(int specId)
         {
             var rawKey = $"ComponentSpec_{specId}";
@@ -365,17 +299,13 @@ namespace PCShop_Backend.Service
 
             var cachedData = await _cacheService.GetAsync<ComponentSpecsDto>(key);
             if (cachedData != null)
-            {
                 return cachedData;
-            }
 
-            var spec = await _context.ComponentSpecs.FindAsync(specId);
+            var spec = await _componentRepository.GetSpecByIdAsync(specId);
             if (spec == null)
-            {
-                throw new Exceptions.NotFoundException($"Component Spec with ID {specId} not found");
-            }
+                throw new NotFoundException($"Component Spec with ID {specId} not found");
 
-            var specDto = new ComponentSpecsDto
+            var dto = new ComponentSpecsDto
             {
                 SpecId = spec.SpecId,
                 ComponentId = spec.ComponentId,
@@ -384,60 +314,63 @@ namespace PCShop_Backend.Service
                 DisplayOrder = spec.DisplayOrder
             };
 
-            await _cacheService.SetAsync(key, specDto);
-
-            return specDto;
+            await _cacheService.SetAsync(key, dto);
+            return dto;
         }
-        public async Task updateComponentSpecs(int specId, UpdateComponentSpecDto updateComponentSpecDto)
+
+        public async Task addComponentSpecs(CreateComponentSpecDto dto)
         {
-            var spec = await _context.ComponentSpecs.FindAsync(specId);
-            if (spec == null)
+            await _componentRepository.AddSpecAsync(new ComponentSpec
             {
-                throw new Exceptions.NotFoundException($"Component Spec with ID {specId} not found");
-            }
-            spec.SpecKey = updateComponentSpecDto.SpecKey;
-            spec.SpecValue = updateComponentSpecDto.SpecValue;
-            spec.DisplayOrder = updateComponentSpecDto.DisplayOrder;
-            await _context.SaveChangesAsync();
+                ComponentId = dto.ComponentId,
+                SpecKey = dto.SpecKey,
+                SpecValue = dto.SpecValue,
+                DisplayOrder = dto.DisplayOrder
+            });
+            await _componentRepository.SaveChangesAsync();
+        }
+
+        public async Task updateComponentSpecs(int specId, UpdateComponentSpecDto dto)
+        {
+            var spec = await _componentRepository.GetSpecByIdAsync(specId);
+            if (spec == null)
+                throw new NotFoundException($"Component Spec with ID {specId} not found");
+
+            spec.SpecKey = dto.SpecKey;
+            spec.SpecValue = dto.SpecValue;
+            spec.DisplayOrder = dto.DisplayOrder;
+            await _componentRepository.SaveChangesAsync();
 
             var rawKey = $"ComponentSpec_{specId}";
-            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
-            await _cacheService.RemoveAsync(key);
+            var cacheKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(cacheKey);
         }
+
         public async Task deleteComponentSpecs(int specId)
         {
-            var spec = _context.ComponentSpecs.Find(specId);
+            var spec = await _componentRepository.GetSpecByIdAsync(specId);
             if (spec == null)
-            {
-                throw new Exceptions.NotFoundException($"Component Spec with ID {specId} not found");
-            }
-            _context.ComponentSpecs.Remove(spec);
-            await _context.SaveChangesAsync();
+                throw new NotFoundException($"Component Spec with ID {specId} not found");
+
+            _componentRepository.RemoveSpec(spec);
+            await _componentRepository.SaveChangesAsync();
 
             var rawKey = $"ComponentSpec_{specId}";
-            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
-            await _cacheService.RemoveAsync(key);
+            var cacheKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(cacheKey);
         }
 
         // ==================PC Build==================\\
-
         public async Task<Paging<PcBuildDto>> getPcBuilds(GridifyQuery query)
         {
-            //Tao key cho cache bằng cách kết hợp các tham số truy vấn và băm chúng để tránh key quá dài
             var rawKey = $"PcBuilds_{query.Page}_{query.PageSize}_{query.Filter}_{query.OrderBy}";
             var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
 
             var cachedData = await _cacheService.GetAsync<Paging<PcBuildDto>>(key);
             if (cachedData != null)
-            {
                 return cachedData;
-            }
 
-            var build = _context.Pcbuilds
-                .Include(b => b.CreatedByUser)
-                .Include(b => b.PcbuildComponents)
-                    .ThenInclude(bc => bc.Component)
-                        .ThenInclude(c => c.Category)
+            var result = await _componentRepository.QueryPcBuilds()
                 .Select(b => new PcBuildDto
                 {
                     BuildId = b.BuildId,
@@ -460,12 +393,12 @@ namespace PCShop_Backend.Service
                         ImageUrl = bc.Component.ImageUrl
                     }).ToList(),
                     TotalPrice = b.PcbuildComponents.Sum(bc => bc.Component.Price * bc.Quantity)
-                });
-            var result = await build.GridifyAsync(query);
+                }).GridifyAsync(query);
 
             await _cacheService.SetAsync(key, result);
             return result;
         }
+
         public async Task<PcBuildDto> getPcbuildById(int buildId)
         {
             var rawKey = $"PcBuild_{buildId}";
@@ -473,19 +406,11 @@ namespace PCShop_Backend.Service
 
             var cachedData = await _cacheService.GetAsync<PcBuildDto>(key);
             if (cachedData != null)
-            {
                 return cachedData;
-            }
 
-            var build = await _context.Pcbuilds
-                .Include(b => b.CreatedByUser)
-                .Include(b => b.PcbuildComponents)
-                    .ThenInclude(bc => bc.Component)
-                        .ThenInclude(c => c.Category)
-                .FirstOrDefaultAsync(b => b.BuildId == buildId);
-
+            var build = await _componentRepository.GetPcBuildByIdAsync(buildId);
             if (build == null)
-                throw new Exceptions.NotFoundException($"Build {buildId} not found");
+                throw new NotFoundException($"Build {buildId} not found");
 
             var components = build.PcbuildComponents.Select(bc => new PcBuildComponentDto
             {
@@ -499,7 +424,7 @@ namespace PCShop_Backend.Service
                 ImageUrl = bc.Component.ImageUrl
             }).ToList();
 
-            var buildDto = new PcBuildDto
+            var dto = new PcBuildDto
             {
                 BuildId = build.BuildId,
                 BuildName = build.BuildName,
@@ -510,149 +435,121 @@ namespace PCShop_Backend.Service
                 CreatedAt = build.CreatedAt ?? DateTime.UtcNow,
                 UpdatedAt = build.UpdatedAt,
                 Components = components,
-                TotalPrice = components.Sum(c => c.Subtotal),
+                TotalPrice = components.Sum(c => c.Subtotal)
             };
 
-            await _cacheService.SetAsync(key, buildDto);
-
-            return buildDto;
+            await _cacheService.SetAsync(key, dto);
+            return dto;
         }
-        public async Task createPcbuild(CreatePcBuildDto createPcBuildDto)
+
+        public async Task createPcbuild(CreatePcBuildDto dto)
         {
             var userIdClaims = _httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier);
             int.TryParse(userIdClaims, out var userId);
 
-            var componentsId = createPcBuildDto.Components.Select(c => c.ComponentId).ToList();
-            var components = await _context.Components.Where(c => componentsId
-                .Contains(c.ComponentId) && c.IsActive == true)
-                .ToListAsync();
-            if (components.Count != componentsId.Distinct().Count())
-            {
+            var componentIds = dto.Components.Select(c => c.ComponentId).ToList();
+            var components = await _componentRepository.GetActiveComponentsByIdsAsync(componentIds);
+
+            if (components.Count != componentIds.Distinct().Count())
                 throw new ValidationException("One or more components are invalid or inactive");
-            }
 
-            //check quantity of each component
-            foreach (var item in createPcBuildDto.Components)
+            foreach (var item in dto.Components)
             {
-                var componentInBuild = components.First(c => c.ComponentId == item.ComponentId);
-                if (componentInBuild.StockQuantity < item.Quantity)
-                {
+                var component = components.First(c => c.ComponentId == item.ComponentId);
+                if (component.StockQuantity < item.Quantity)
                     throw new ValidationException(
-                            $"Component '{componentInBuild.Name}' has insufficient stock. " +
-                            $"Available: {componentInBuild.StockQuantity}, Requested: {item.Quantity}");
-                }
+                        $"Component '{component.Name}' has insufficient stock. " +
+                        $"Available: {component.StockQuantity}, Requested: {item.Quantity}");
             }
 
-            var createPc = new Pcbuild
+            var build = new Pcbuild
             {
-                BuildName = createPcBuildDto.BuildName,
-                Description = createPcBuildDto.Description,
-                IsPublic = createPcBuildDto.IsPublic,
+                BuildName = dto.BuildName,
+                Description = dto.Description,
+                IsPublic = dto.IsPublic,
                 CreatedByUserId = userId,
                 CreatedAt = DateTime.UtcNow
             };
 
-            await _context.Pcbuilds.AddAsync(createPc);
-            await _context.SaveChangesAsync();
+            await _componentRepository.AddPcBuildAsync(build);
+            await _componentRepository.SaveChangesAsync();
 
-            foreach (var item in createPcBuildDto.Components)
+            foreach (var item in dto.Components)
             {
-                _context.PcbuildComponents.Add(new PcbuildComponent
+                _componentRepository.AddPcBuildComponent(new PcbuildComponent
                 {
-                    BuildId = createPc.BuildId,
+                    BuildId = build.BuildId,
                     ComponentId = item.ComponentId,
                     Quantity = item.Quantity
                 });
             }
-            await _context.SaveChangesAsync();
+            await _componentRepository.SaveChangesAsync();
         }
+
         public async Task UpdatePcBuild(int buildId, UpdatePcBuildDto dto)
         {
-            var userIdClaims = _httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.NameIdentifier);
-            int.TryParse(userIdClaims, out var userId);
-
-            var build = await _context.Pcbuilds
-                .Include(b => b.PcbuildComponents)
-                .FirstOrDefaultAsync(b => b.BuildId == buildId);
-
+            var build = await _componentRepository.GetPcBuildByIdAsync(buildId);
             if (build == null)
-                throw new Exceptions.NotFoundException($"PC Build with ID {buildId} not found");
+                throw new NotFoundException($"PC Build with ID {buildId} not found");
 
             build.BuildName = dto.BuildName;
             build.Description = dto.Description;
             build.IsPublic = dto.IsPublic;
             build.UpdatedAt = DateTime.UtcNow;
 
-            //check if components are valid and active
             if (dto.Components != null && dto.Components.Any())
             {
                 var componentIds = dto.Components.Select(c => c.ComponentId).Distinct().ToList();
-                var validComponents = await _context.Components
-                    .Where(c => componentIds.Contains(c.ComponentId) && c.IsActive == true)
-                    .Select(c => c.ComponentId)
-                    .ToListAsync();
+                var validIds = await _componentRepository.GetActiveComponentIdsAsync(componentIds);
 
-                //check quantity of each component
-                if (validComponents.Count != componentIds.Count)
+                if (validIds.Count != componentIds.Count)
                 {
-                    var invalidIds = componentIds.Except(validComponents);
-                    throw new ValidationException(
-                        $"Components not found or inactive: {string.Join(", ", invalidIds)}");
+                    var invalidIds = componentIds.Except(validIds);
+                    throw new ValidationException($"Components not found or inactive: {string.Join(", ", invalidIds)}");
                 }
 
-                var existingComponents = build.PcbuildComponents.ToList();
-
-                // Remove components that are no longer in the build
-                var componentsToRemove = existingComponents
+                var toRemove = build.PcbuildComponents
                     .Where(ec => !componentIds.Contains(ec.ComponentId))
                     .ToList();
-
-                _context.PcbuildComponents.RemoveRange(componentsToRemove);
+                _componentRepository.RemovePcBuildComponents(toRemove);
 
                 foreach (var item in dto.Components)
                 {
-                    var existing = existingComponents
+                    var existing = build.PcbuildComponents
                         .FirstOrDefault(ec => ec.ComponentId == item.ComponentId);
 
                     if (existing != null)
-                    {
-                        // Update quantity
                         existing.Quantity = item.Quantity;
-                    }
                     else
-                    {
-                        _context.PcbuildComponents.Add(new PcbuildComponent
+                        _componentRepository.AddPcBuildComponent(new PcbuildComponent
                         {
                             BuildId = buildId,
                             ComponentId = item.ComponentId,
                             Quantity = item.Quantity
                         });
-                    }
                 }
             }
 
-            await _context.SaveChangesAsync();
+            await _componentRepository.SaveChangesAsync();
 
             var rawKey = $"PcBuild_{buildId}";
-            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
-            await _cacheService.RemoveAsync(key);
+            var cacheKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(cacheKey);
         }
+
         public async Task deletePcbuild(int buildId)
         {
-            var pcBuild = _context.Pcbuilds.Find(buildId);
-            if (pcBuild == null)
-            {
-                throw new Exceptions.NotFoundException($"PC Build with ID {buildId} not found");
-            }
-            _context.Pcbuilds.Remove(pcBuild);
+            var build = await _componentRepository.GetPcBuildByIdAsync(buildId);
+            if (build == null)
+                throw new NotFoundException($"PC Build with ID {buildId} not found");
+
+            _componentRepository.RemovePcBuild(build);
 
             var rawKey = $"PcBuild_{buildId}";
-            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
-            await _cacheService.RemoveAsync(key);
+            var cacheKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawKey)));
+            await _cacheService.RemoveAsync(cacheKey);
 
-            await _context.SaveChangesAsync();
+            await _componentRepository.SaveChangesAsync();
         }
-
-
     }
 }

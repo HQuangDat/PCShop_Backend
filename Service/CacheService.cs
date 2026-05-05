@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Caching.Distributed;
 using Newtonsoft.Json;
-using PCShop_Backend.Dtos;
+using PCShop_Backend.Interfaces;
 
 namespace PCShop_Backend.Service
 {

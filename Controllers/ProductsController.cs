@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PCShop_Backend.Dtos.ProductDtos.CreateDto;
 using PCShop_Backend.Dtos.ProductDtos.UpdateDto;
-using PCShop_Backend.Service;
+using PCShop_Backend.Interfaces;
 using PCShop_Backend.Exceptions;
 using Serilog;
 

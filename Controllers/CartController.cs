@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using PCShop_Backend.Dtos.CartDtos.CreateDtos;
 using PCShop_Backend.Dtos.CartDtos.UpdateDtos;
-using PCShop_Backend.Service;
+using PCShop_Backend.Interfaces;
 
 namespace PCShop_Backend.Controllers
 {
