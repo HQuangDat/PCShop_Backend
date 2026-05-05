@@ -9,6 +9,7 @@ using PCShop_Backend.Repositories;
 using PCShop_Backend.Repositories.Interfaces;
 using PCShop_Backend.Service;
 using PCShop_Backend.Middleware;
+using PCShop_Backend.Filters;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using Serilog.Events;
@@ -19,6 +20,8 @@ using System.Threading.RateLimiting;
 using Hangfire.Dashboard.BasicAuthorization;
 using Hangfire;
 using Hangfire.SqlServer;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 
 // Configure Serilog BEFORE creating the WebApplication builder
 var loggerConfig = new LoggerConfiguration()
@@ -72,7 +75,12 @@ try
     builder.Host.UseSerilog();
 
     // Add services to the container.
-    builder.Services.AddControllers();
+    builder.Services.AddControllers(options =>
+        options.Filters.Add(new ValidIdFilter()));
+
+    builder.Services.AddFluentValidationAutoValidation(config =>
+        config.DisableDataAnnotationsValidation = true);
+    builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
     builder.Services.AddEndpointsApiExplorer();
 

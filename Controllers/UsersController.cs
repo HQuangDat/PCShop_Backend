@@ -1,13 +1,11 @@
 using Gridify;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using PCShop_Backend.Dtos.UserDtos.CreateDto;
 using PCShop_Backend.Dtos.UserDtos.UpdateDto;
 using PCShop_Backend.Interfaces;
 using PCShop_Backend.Exceptions;
 using Serilog;
-using System.Runtime.CompilerServices;
 
 namespace PCShop_Backend.Controllers
 {
@@ -36,9 +34,6 @@ namespace PCShop_Backend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetRoleById(int roleId)
         {
-            if (roleId <= 0)
-                throw new ArgumentException("Role ID must be greater than 0.");
-
             var role = await _userService.getRoleById(roleId);
             if (role == null)
                 throw new NotFoundException($"Role with ID {roleId} not found.");
@@ -60,9 +55,6 @@ namespace PCShop_Backend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateRole(int roleId, UpdateRoleDto dto)
         {
-            if (roleId <= 0)
-                throw new ArgumentException("Role ID must be greater than 0.");
-
             await _userService.UpdateRole(roleId, dto);
             Log.Information("Updated role ID {RoleId}", roleId);
             return Ok(new { message = "Role updated successfully!" });
@@ -72,9 +64,6 @@ namespace PCShop_Backend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteRole(int roleId)
         {
-            if (roleId <= 0)
-                throw new ArgumentException("Role ID must be greater than 0.");
-
             await _userService.DeleteRole(roleId);
             Log.Information("Deleted role with ID {RoleId}", roleId);
             return Ok(new { message = "Role deleted successfully!" });
@@ -94,9 +83,6 @@ namespace PCShop_Backend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetUserById(int userId)
         {
-            if (userId <= 0)
-                throw new ArgumentException("User ID must be greater than 0.");
-
             var user = await _userService.GetUserById(userId);
             if (user == null)
                 throw new NotFoundException($"User with ID {userId} not found.");
@@ -117,16 +103,9 @@ namespace PCShop_Backend.Controllers
         [Authorize]
         public async Task<IActionResult> UpdateUser(int userId, UpdateUserDto dto)
         {
-            if (userId <= 0)
-                throw new ArgumentException("User ID must be greater than 0.");
-
-            // Check if the user is updating their own profile or is an admin
-            //Kiem tra neu user dang login co id trung voi id can update hay ko, neu ko phai admin thi ko dc phep update
             var currentUserId = int.TryParse(User.FindFirst("sub")?.Value, out var id) ? id : 0;
             if (currentUserId != userId && !User.IsInRole("Admin"))
-            {
                 throw new UnauthorizedException("You can only update your own profile unless you are an admin.");
-            }
 
             await _userService.UpdateUser(userId, dto);
             Log.Information("Updated user ID {UserId}", userId);
@@ -137,9 +116,6 @@ namespace PCShop_Backend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteUser(int userId)
         {
-            if (userId <= 0)
-                throw new ArgumentException("User ID must be greater than 0.");
-
             await _userService.DeleteUser(userId);
             Log.Information("Deleted user with ID {UserId}", userId);
             return Ok(new { message = "User deleted successfully!" });

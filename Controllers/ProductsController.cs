@@ -34,9 +34,6 @@ namespace PCShop_Backend.Controllers
         [HttpGet("component/{id}")]
         public async Task<IActionResult> GetComponentById(int id)
         {
-            if (id <= 0)
-                throw new ArgumentException("Component ID must be greater than 0.");
-
             var component = await _productService.getComponentById(id);
             if (component == null)
                 throw new NotFoundException($"Component with ID {id} not found.");
@@ -58,9 +55,6 @@ namespace PCShop_Backend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateComponent(int id, [FromBody] updateComponentDto updateComponentDto)
         {
-            if (id <= 0)
-                throw new ArgumentException("Component ID must be greater than 0.");
-
             await _productService.updateComponent(id, updateComponentDto);
             Log.Information("Component updated successfully with ID {ComponentId}", id);
             return Ok(new { message = "Component updated successfully" });
@@ -70,9 +64,6 @@ namespace PCShop_Backend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteComponent(int id)
         {
-            if (id <= 0)
-                throw new ArgumentException("Component ID must be greater than 0.");
-
             await _productService.deleteComponent(id);
             Log.Information("Component deleted successfully with ID {ComponentId}", id);
             return Ok(new { message = "Component deleted successfully" });
@@ -92,9 +83,6 @@ namespace PCShop_Backend.Controllers
         [HttpGet("component-category/{categoryId}")]
         public async Task<IActionResult> GetComponentCategoryById(int categoryId)
         {
-            if (categoryId <= 0)
-                throw new ArgumentException("Category ID must be greater than 0.");
-
             var category = await _productService.getComponentCategoryById(categoryId);
             if (category == null)
                 throw new NotFoundException($"Component category with ID {categoryId} not found.");
@@ -116,9 +104,6 @@ namespace PCShop_Backend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateComponentCategory(int categoryId, [FromBody] UpdateComponentCategoryDto updateComponentCategoryDto)
         {
-            if (categoryId <= 0)
-                throw new ArgumentException("Category ID must be greater than 0.");
-
             await _productService.updateComponentCategory(categoryId, updateComponentCategoryDto);
             Log.Information("Component category updated successfully with ID {CategoryId}", categoryId);
             return Ok(new { message = "Component category updated successfully" });
@@ -128,9 +113,6 @@ namespace PCShop_Backend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteComponentCategory(int categoryId)
         {
-            if (categoryId <= 0)
-                throw new ArgumentException("Category ID must be greater than 0.");
-
             await _productService.deleteComponentCategory(categoryId);
             Log.Information("Component category deleted successfully with ID {CategoryId}", categoryId);
             return Ok(new { message = "Component category deleted successfully" });
@@ -150,9 +132,6 @@ namespace PCShop_Backend.Controllers
         [HttpGet("component-spec/{specId}")]
         public async Task<IActionResult> GetComponentSpecById(int specId)
         {
-            if (specId <= 0)
-                throw new ArgumentException("Spec ID must be greater than 0.");
-
             var spec = await _productService.getComponentSpecById(specId);
             if (spec == null)
                 throw new NotFoundException($"Component spec with ID {specId} not found.");
@@ -174,9 +153,6 @@ namespace PCShop_Backend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateComponentSpec(int specId, [FromBody] UpdateComponentSpecDto updateComponentSpecDto)
         {
-            if (specId <= 0)
-                throw new ArgumentException("Spec ID must be greater than 0.");
-
             await _productService.updateComponentSpecs(specId, updateComponentSpecDto);
             Log.Information("Component spec updated successfully with ID {SpecId}", specId);
             return Ok(new { message = "Component spec updated successfully" });
@@ -186,9 +162,6 @@ namespace PCShop_Backend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteComponentSpec(int specId)
         {
-            if (specId <= 0)
-                throw new ArgumentException("Spec ID must be greater than 0.");
-
             await _productService.deleteComponentSpecs(specId);
             Log.Information("Component spec deleted successfully with ID {SpecId}", specId);
             return Ok(new { message = "Component spec deleted successfully" });
@@ -208,9 +181,6 @@ namespace PCShop_Backend.Controllers
         [HttpGet("pcbuild/{id}")]
         public async Task<IActionResult> GetPcBuildById(int id)
         {
-            if (id <= 0)
-                throw new ArgumentException("PC Build ID must be greater than 0.");
-
             var pcBuild = await _productService.getPcbuildById(id);
             if (pcBuild == null)
                 throw new NotFoundException($"PC Build with ID {id} not found.");
@@ -232,9 +202,6 @@ namespace PCShop_Backend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdatePcBuild(int id, [FromBody] UpdatePcBuildDto updatePcBuildDto)
         {
-            if (id <= 0)
-                throw new ArgumentException("PC Build ID must be greater than 0.");
-
             await _productService.UpdatePcBuild(id, updatePcBuildDto);
             Log.Information("PC Build updated successfully with ID {PCBuildId}", id);
             return Ok(new { message = "PC Build updated successfully" });
@@ -244,9 +211,6 @@ namespace PCShop_Backend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeletePcBuild(int id)
         {
-            if (id <= 0)
-                throw new ArgumentException("PC Build ID must be greater than 0.");
-
             await _productService.deletePcbuild(id);
             Log.Information("PC Build deleted successfully with ID {PCBuildId}", id);
             return Ok(new { message = "PC Build deleted successfully" });
