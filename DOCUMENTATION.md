@@ -5,7 +5,7 @@
 > **Database:** SQL Server (EF Core 9)  
 > **Cache:** Redis  
 > **Auth:** JWT Bearer  
-> **Generated:** 2026-04-24
+> **Generated:** 2026-05-07
 
 ---
 
@@ -26,13 +26,14 @@
 7. [Data Models](#7-data-models)
 8. [DTOs](#8-dtos)
 9. [Service Layer](#9-service-layer)
-10. [Caching Strategy](#10-caching-strategy)
-11. [Middleware & Cross-Cutting Concerns](#11-middleware--cross-cutting-concerns)
-12. [Background Jobs](#12-background-jobs)
-13. [Error Handling](#13-error-handling)
-14. [Logging](#14-logging)
-15. [Database Schema](#15-database-schema)
-16. [Dependencies](#16-dependencies)
+10. [Repository Layer](#10-repository-layer)
+11. [Caching Strategy](#11-caching-strategy)
+12. [Middleware & Cross-Cutting Concerns](#12-middleware--cross-cutting-concerns)
+13. [Background Jobs](#13-background-jobs)
+14. [Error Handling](#14-error-handling)
+15. [Logging](#15-logging)
+16. [Database Schema](#16-database-schema)
+17. [Dependencies](#17-dependencies)
 
 ---
 
@@ -47,7 +48,7 @@ PCShop Backend is a RESTful API for a PC hardware e-commerce platform. It suppor
 - **Customer support** — Ticketing system with threaded comments
 - **Analytics** — Sales statistics by date range
 
-The system uses a layered architecture: Controllers → Services → EF Core DbContext → SQL Server, with Redis caching applied to read-heavy paths.
+The system uses a layered architecture: Controllers → Services → Repositories → EF Core DbContext → SQL Server, with Redis caching applied to read-heavy paths.
 
 ---
 
@@ -75,10 +76,13 @@ The system uses a layered architecture: Controllers → Services → EF Core DbC
         │  │     Services       │  │
         │  └──┬─────────────┬───┘  │
         │     │             │      │
-        │  ┌──▼──┐      ┌───▼──┐  │
-        │  │Cache│      │ EF   │  │
-        │  │Redis│      │ Core │  │
-        │  └─────┘      └───┬──┘  │
+        │  ┌──▼──┐  ┌───────▼────┐ │
+        │  │Cache│  │Repositories│ │
+        │  │Redis│  └───────┬────┘ │
+        │  └─────┘      ┌───▼──┐  │
+        │               │ EF   │  │
+        │               │ Core │  │
+        │               └───┬──┘  │
         └──────────────────┬┴──────┘
                            │
               ┌────────────▼──────────┐
@@ -91,7 +95,8 @@ The system uses a layered architecture: Controllers → Services → EF Core DbC
 | Layer | Responsibility |
 |-------|---------------|
 | **Controllers** | HTTP request/response mapping, authorization attributes, calling service methods |
-| **Services** | Business logic, cache management, exception throwing |
+| **Services** | Business logic, cache management, exception throwing; inject repository interfaces |
+| **Repositories** | All EF Core / DbContext access; encapsulates query logic; services never touch DbContext directly |
 | **ICacheService** | Redis abstraction with SHA256 key normalization |
 | **ApplicationDbContext** | EF Core ORM, entity configuration, migrations |
 | **Middleware** | Security headers, global exception handling, rate limiting |
@@ -1114,6 +1119,11 @@ Role ──< User ──< CartItem >── Component >── ComponentCategory
 { int RoleId, string RoleName, string Description }
 ```
 
+**ChangePassWordDto**
+```csharp
+{ string CurrentPassword, string NewPassword }
+```
+
 ### Product DTOs
 
 **ComponentDto** (Response)
@@ -1373,7 +1383,146 @@ Task DeleteTicketComment(int ticketId, int commentId);
 
 ---
 
-## 10. Caching Strategy
+## 10. Repository Layer
+
+All database access is encapsulated in repository classes. Services inject repository interfaces and never reference `ApplicationDbContext` directly.
+
+### IComponentRepository
+
+```csharp
+// Components
+IQueryable<Component> QueryComponents();
+Task<Component?> GetByIdAsync(int id);
+Task AddAsync(Component component);
+Task<bool> CategoryExistsAsync(int categoryId);
+Task<bool> IsUsedInPcBuildAsync(int componentId);
+Task<bool> IsUsedInActiveReceiptsAsync(int componentId);
+
+// Categories
+IQueryable<ComponentCategory> QueryCategories();
+Task<ComponentCategory?> GetCategoryByIdAsync(int categoryId);
+Task AddCategoryAsync(ComponentCategory category);
+void RemoveCategory(ComponentCategory category);
+
+// Specs
+IQueryable<ComponentSpec> QuerySpecs();
+Task<ComponentSpec?> GetSpecByIdAsync(int specId);
+Task AddSpecAsync(ComponentSpec spec);
+void RemoveSpec(ComponentSpec spec);
+
+// PC Builds
+IQueryable<Pcbuild> QueryPcBuilds();
+Task<Pcbuild?> GetPcBuildByIdAsync(int buildId);
+Task AddPcBuildAsync(Pcbuild build);
+void RemovePcBuild(Pcbuild build);
+Task<List<Component>> GetActiveComponentsByIdsAsync(List<int> ids);
+Task<List<int>> GetActiveComponentIdsAsync(List<int> ids);
+void AddPcBuildComponent(PcbuildComponent component);
+void RemovePcBuildComponents(IEnumerable<PcbuildComponent> components);
+
+Task SaveChangesAsync();
+```
+
+---
+
+### IUserRepository
+
+```csharp
+// Users
+IQueryable<User> QueryUsers();
+Task<User?> GetUserByIdAsync(int id);
+Task<bool> UserExistsAsync(string email, string username);
+Task AddUserAsync(User user);
+void RemoveUser(User user);
+
+// Roles
+IQueryable<Role> QueryRoles();
+Task<Role?> GetRoleByIdAsync(int roleId);
+void AddRole(Role role);
+void RemoveRole(Role role);
+
+Task SaveChangesAsync();
+```
+
+---
+
+### IAuthRepository
+
+```csharp
+Task<User?> GetUserByUsernameAsync(string username);
+Task<User?> GetUserByEmailAsync(string email);
+Task<PasswordReset?> GetPasswordResetByEmailAsync(string email);
+Task<PasswordReset?> GetPasswordResetByTokenAsync(string token);
+Task AddPasswordResetAsync(PasswordReset passwordReset);
+void RemovePasswordReset(PasswordReset passwordReset);
+void UpdateUser(User user);
+Task SaveChangesAsync();
+```
+
+---
+
+### ICartRepository
+
+```csharp
+IQueryable<CartItem> QueryCartItems();
+Task<Component?> GetComponentByIdAsync(int? componentId);
+Task<CartItem?> GetCartItemByIdAndUserAsync(int cartItemId, int userId);
+Task<CartItem?> GetCartItemByIdAsync(int cartItemId);
+Task<List<CartItem>> GetUserCartItemsAsync(int userId);
+Task AddCartItemAsync(CartItem cartItem);
+void RemoveCartItem(CartItem cartItem);
+void RemoveCartItems(IEnumerable<CartItem> cartItems);
+Task SaveChangesAsync();
+```
+
+---
+
+### IOrderRepository
+
+```csharp
+// Receipts
+IQueryable<Receipt> QueryReceipts();
+Task<Receipt?> GetReceiptByIdAndUserAsync(int receiptId, int userId);
+Task AddReceiptAsync(Receipt receipt);
+void RemoveReceipt(Receipt receipt);
+
+// Receipt Items
+IQueryable<ReceiptItem> QueryReceiptItems();
+Task<ReceiptItem?> GetReceiptItemAsync(int receiptId, int receiptItemId);
+Task AddReceiptItemsAsync(IEnumerable<ReceiptItem> items);
+void RemoveReceiptItem(ReceiptItem receiptItem);
+
+// Analytics
+Task<List<SalesStatisticDto>> GetSalesStatisticsAsync(DateTime startDate, DateTime endDate);
+
+Task SaveChangesAsync();
+```
+
+---
+
+### ISupportRepository
+
+```csharp
+// Tickets
+IQueryable<Ticket> QueryTickets();
+Task<Ticket?> GetTicketByIdAsync(int ticketId);
+Task AddTicketAsync(Ticket ticket);
+void RemoveTicket(Ticket ticket);
+void UpdateTicket(Ticket ticket);
+
+// Comments
+IQueryable<TicketComment> QueryTicketComments();
+Task<TicketComment?> GetCommentAsync(int ticketId, int commentId);
+Task AddCommentAsync(TicketComment comment);
+void RemoveComment(TicketComment comment);
+void UpdateComment(TicketComment comment);
+
+Task SaveChangesAsync();
+```
+
+---
+
+## 11. Caching Strategy
 
 ### Overview
 
@@ -1418,7 +1567,7 @@ Check Redis (ICacheService.GetAsync)
 
 ---
 
-## 11. Middleware & Cross-Cutting Concerns
+## 12. Middleware & Cross-Cutting Concerns
 
 ### SecurityHeadersMiddleware
 
@@ -1478,9 +1627,17 @@ Fixed-window rate limiter applied globally.
 
 > Update `AllowedOrigins` in production to the deployed frontend URL.
 
+### ValidIdFilter
+
+A global `IActionFilter` applied to all controllers. Validates that any action parameter whose name ends in `Id` (e.g. `userId`, `componentId`) is greater than `0`. Returns `400 Bad Request` before the action executes if the check fails.
+
+```json
+{ "message": "Id must be greater than 0.", "statusCode": 400 }
+```
+
 ---
 
-## 12. Background Jobs
+## 13. Background Jobs
 
 **Hangfire** is used for asynchronous job execution with SQL Server as the backing store.
 
@@ -1511,7 +1668,7 @@ SMTP configuration is sourced from `SmtpSettings` in `appsettings`.
 
 ---
 
-## 13. Error Handling
+## 14. Error Handling
 
 ### Custom Exceptions
 
@@ -1525,7 +1682,7 @@ SMTP configuration is sourced from `SmtpSettings` in `appsettings`.
 ### Usage Example (Service)
 
 ```csharp
-var component = await _context.Components.FindAsync(id)
+var component = await _componentRepository.GetByIdAsync(id)
     ?? throw new NotFoundException($"Component {id} not found.");
 ```
 
@@ -1533,16 +1690,21 @@ The `GlobalExceptionHandlingMiddleware` catches these and returns the appropriat
 
 ---
 
-## 14. Logging
+## 15. Logging
 
-**Serilog** is configured with two sinks:
+**Serilog** is configured with three sinks:
 
-| Sink | Level | Format |
-|------|-------|--------|
-| Console | Debug | `[Timestamp] [Level] Message` |
-| Rolling file | All | `[Timestamp] [Level] Message{Exception}` |
+| Sink | Level | Format | Retention |
+|------|-------|--------|-----------|
+| Console | Debug+ | `[Timestamp] [Level] Message` | — |
+| Rolling file (info) | Info+ | `[Timestamp] [Level] Message{NewLine}{Exception}` | 31 days |
+| Rolling file (errors) | Error+ | `[Timestamp] [Level] Message{NewLine}{Exception}` | 90 days |
 
-**Log file path:** `logs/log-{date}.txt` (daily rolling)
+**Log file paths:**
+- `logs/log-info-.txt` (daily rolling, info and above)
+- `logs/log-error-.txt` (daily rolling, errors only)
+
+**Request logging:** each HTTP request is logged with method, path, status code, and elapsed time via `UseSerilogRequestLogging()`.
 
 **Log levels by context:**
 - Exception middleware: `Error` for 5xx, `Warning` for 4xx
@@ -1550,7 +1712,7 @@ The `GlobalExceptionHandlingMiddleware` catches these and returns the appropriat
 
 ---
 
-## 15. Database Schema
+## 16. Database Schema
 
 ### Migrations
 
@@ -1583,7 +1745,7 @@ dotnet ef database update
 
 ---
 
-## 16. Dependencies
+## 17. Dependencies
 
 ### NuGet Packages
 
@@ -1600,6 +1762,7 @@ dotnet ef database update
 | `Serilog.AspNetCore` | 9.0.0 | ASP.NET Core Serilog integration |
 | `Serilog.Sinks.File` | 7.0.0 | File sink for Serilog |
 | `Swashbuckle.AspNetCore` | 9.0.6 | Swagger/OpenAPI UI |
+| `FluentValidation.AspNetCore` | — | Request model validation (auto-validation via middleware) |
 | `Humanizer` | — | Human-readable strings |
 
 ### Runtime Requirements
